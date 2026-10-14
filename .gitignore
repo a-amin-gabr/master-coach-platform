@@ -1,0 +1,7 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+uploads/ev-*.pdf
+uploads/ev-*.docx
+uploads/ev-*.png
+uploads/ev-*.mp3

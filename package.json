@@ -1,0 +1,29 @@
+{
+  "name": "master_coach_platform",
+  "version": "3.0.0",
+  "description": "منظومة إعداد وتأهيل الماستر كوتش التفاعلية - شركة تمكين الرؤية للاستشارات المهنية",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node tests/api_fullstack.test.js",
+    "test:all": "node tests/api_fullstack.test.js && (cd .. && node test_platform.js && node test_reactive_logic.js)"
+  },
+  "keywords": [
+    "coaching",
+    "master-coach",
+    "tamkeen-al-roaya",
+    "rubrics",
+    "competencies"
+  ],
+  "author": "شركة تمكين الرؤية للاستشارات المهنية - cyce52.com",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0"
+  }
+}
