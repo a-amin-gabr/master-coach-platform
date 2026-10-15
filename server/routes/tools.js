@@ -11,7 +11,7 @@ const TOOL_NAMES = {
 
 function resolveCoachId(req) {
     if (req.user.role === 'admin') {
-        const queryId = req.query.coachId || req.body.coachId;
+        const queryId = (req.query && req.query.coachId) || (req.body && req.body.coachId);
         return queryId ? parseInt(queryId, 10) : 1;
     }
     return req.coach ? req.coach.id : null;

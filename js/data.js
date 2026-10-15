@@ -149,6 +149,305 @@ const DEFAULT_PROGRAM_DATA = {
         }
     ],
 
+    // 14 Core Competency Domains (مجالات الكفايات الـ 14 المعتمدة - الاتحاد العربي للكوتشنج)
+    core14Domains: [
+        {
+            id: "C14-01",
+            code: "core_practice",
+            title: "الممارسة المهنية الأساسية",
+            subtitle: "Core Professional Practice",
+            icon: "compass",
+            color: "#1D4ED8",
+            bgColor: "rgba(29, 78, 216, 0.1)",
+            targetHours: 35,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "ترسيخ الهوية المهنية للكوتش، وتأسيس التحالف الكوتشنجي، وإدارة التعاقد الصريح، والحفاظ على مسار الجلسة وإدارتها باقتدار واستقلالية تامة دون توجيه.",
+            keyIndicators: [
+                "صياغة اتفاقيات كوتشنج رصينة تحدد الأهداف والمخرجات والحدود بوضوح.",
+                "إدارة الوقت والتدفق الحواري في الجلسات بمرونة واحترافية متناهية.",
+                "الحفاظ على الشراكة الكوتشنجية والتمكين الذاتي للمستفيد في توليد الحلول."
+            ],
+            linkedCompetencies: ["C101", "C102", "C103", "C104", "C106"],
+            requiredEvidences: ["تسجيلات الجلسات #01-#10", "نماذج التعاقد الموقعة", "تقارير إغلاق الحالات"]
+        },
+        {
+            id: "C14-02",
+            code: "professional_analysis",
+            title: "التحليل المهني",
+            subtitle: "Professional & Analytical Assessment",
+            icon: "microscope",
+            color: "#0284C7",
+            bgColor: "rgba(2, 132, 199, 0.1)",
+            targetHours: 25,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "التشخيص المعمق والدقيق لواقع المستفيد، والتفريق الحاسم بين الأعراض السطحية والأسباب الجذرية، وتفكيك التحديات التنظيمية والشخصية المركبة.",
+            keyIndicators: [
+                "عزل الأعراض الظاهرة والوصول إلى المنطلقات والافتراضات المسببة.",
+                "قراءة الدوافع والقيم الحاكمة لسلوك وقرارات المستفيد المهنية.",
+                "صياغة فرضيات كوتشنجية استكشافية تدعم التحول المستدام."
+            ],
+            linkedCompetencies: ["C201", "C202", "C203"],
+            requiredEvidences: ["ملفات تشخيص الحالات 1-20", "تقارير الاستكشاف التحليلي", "مصفوفة الأسباب الجذرية"]
+        },
+        {
+            id: "C14-03",
+            code: "critical_thinking",
+            title: "التفكير النقدي",
+            subtitle: "Critical Thinking & Socratic Inquiry",
+            icon: "brain",
+            color: "#7C3AED",
+            bgColor: "rgba(124, 58, 237, 0.1)",
+            targetHours: 20,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "توظيف التساؤل السقراطي العميق، ومساءلة الافتراضات غير المختبرة، وتفكيك الانحيازات المعرفية والمعتقدات المعيقة للنمو والتطوير.",
+            keyIndicators: [
+                "توجيه أسئلة نقدية ثاقبة تحفز إعادة النظر في المسلمات والأنماط القديمة.",
+                "مساعدة المستفيد على رصد تناقضات التفكير والفجوات بين الرؤية والممارسة.",
+                "توليد بدائل استراتيجية غير مألوفة للتعامل مع التحديات المعقدة."
+            ],
+            linkedCompetencies: ["C401", "C402"],
+            requiredEvidences: ["طوابع زمنية للأسئلة النقدية بالتسجيلات", "تأملات فحص الافتراضات", "دراسات الحالة النقدية"]
+        },
+        {
+            id: "C14-04",
+            code: "systems_thinking",
+            title: "التفكير المنظومي",
+            subtitle: "Systems Thinking & Dynamic Modeling",
+            icon: "git-merge",
+            color: "#6366F1",
+            bgColor: "rgba(99, 102, 241, 0.1)",
+            targetHours: 20,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "فهم المنظمات كأنظمة بيئية حية، واستيعاب حلقات التغذية الراجعة، وتتبع التأثيرات المتبادلة غير المباشرة للقرارات القيادية.",
+            keyIndicators: [
+                "رسم خرائط حلقات التأثير والسببية الدائرية في التحديات المؤسسية.",
+                "توقع الآثار الجانبية والتبعات غير المقصودة لقرارات المستفيد.",
+                "مواءمة أهداف الجلسات الفردية مع المنظومة المؤسسية الأوسع."
+            ],
+            linkedCompetencies: ["C403", "C404"],
+            requiredEvidences: ["مخططات التأثير المنظومي المؤسسي", "دراسة الحالة المؤسسية الشاملة", "نماذج مواءمة الأهداف"]
+        },
+        {
+            id: "C14-05",
+            code: "model_integration",
+            title: "اختيار النماذج وتكاملها",
+            subtitle: "Model Selection & Methodological Integration",
+            icon: "layers",
+            color: "#059669",
+            bgColor: "rgba(5, 150, 105, 0.1)",
+            targetHours: 25,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "المفاضلة المنهجية الرصينة بين نماذج الكوتشنج المتعددة، وتبرير اختيار النموذج المناسب، وتطوير نماذج متكاملة ومكيفة حسب سياق كل مستفيد.",
+            keyIndicators: [
+                "تقديم مبررات علمية رصينة عند اختيار وتكييف كل نموذج لكل جلسة.",
+                "الدمج المرن بين المدارس الكوتشنجية العالمية بما يخدم أهداف العميل.",
+                "تصميم نماذج تدخّل كوتشنجي مهنية مبتكرة وقياس فعاليتها."
+            ],
+            linkedCompetencies: ["C204", "C205", "C302"],
+            requiredEvidences: ["وثائق النماذج الـ 10 الابتكارية", "تقارير تبرير اختيار النماذج", "أدلة التكييف المنهجي"]
+        },
+        {
+            id: "C14-06",
+            code: "diagnostic_tools",
+            title: "توظيف أدوات الاستكشاف",
+            subtitle: "Employment of Diagnostic Tools",
+            icon: "tool",
+            color: "#0EA5E9",
+            bgColor: "rgba(14, 165, 233, 0.1)",
+            targetHours: 30,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "إتقان تطبيق المقاييس التشخيصية والاستكشافية المعتمدة (MBTI، عجلة الحياة، SWOT) مع الالتزام الصارم بقاعدة عدم تكرار المستفيد داخل الأداة الواحدة.",
+            keyIndicators: [
+                "إنجاز 90 تطبيقاً موثقاً كاملاً (30 MBTI + 30 عجلة + 30 SWOT) بلا أي تكرار داخلي.",
+                "قراءة وتفسير نتائج الأدوات دون وسم أو تصنيف المستفيد بشكل نمطي.",
+                "استثمار مخرجات الأدوات في بناء خطط عمل إجرائية واقعية ومقاسة."
+            ],
+            linkedCompetencies: ["C301", "C303", "C304"],
+            requiredEvidences: ["سجلات الـ 90 تطبيقاً المعتمدة", "تقارير الاستكشاف التشخيصي", "محاضر التحقق من عدم التكرار"]
+        },
+        {
+            id: "C14-07",
+            code: "institutional_leadership",
+            title: "القيادة والتطبيق المؤسسي",
+            subtitle: "Organizational Leadership & Culture Transformation",
+            icon: "briefcase",
+            color: "#D97706",
+            bgColor: "rgba(217, 119, 6, 0.1)",
+            targetHours: 25,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "تصميم وتنفيذ برامج الكوتشنج التنفيذي على مستوى المنظمات، وتهيئة بيئات العمل للتحول الثقافي، وتمكين القيادات العليا من حوكمة الأداء.",
+            keyIndicators: [
+                "تنفيذ مشروع متكامل لتهيئة مؤسسة كبرى عبر 4 مراحل استراتيجية.",
+                "بناء تحالفات كوتشنجية ثلاثية الأبعاد (الكوتش، المستفيد، الإدارة العليا).",
+                "تعزيز ثقافة الكوتشنج كمنهجية عمل وتمكين مستدام داخل المنظمات."
+            ],
+            linkedCompetencies: ["C305", "C405", "C406"],
+            requiredEvidences: ["مشروع تهيئة شركة ريادة التقنية", "عقود التحالف المؤسسي الثلاثي", "تقارير التمكين التنظيمي"]
+        },
+        {
+            id: "C14-08",
+            code: "reflective_evolution",
+            title: "التأمل والتطوير المهني",
+            subtitle: "Self-Reflection & Professional Evolution",
+            icon: "eye",
+            color: "#8B5CF6",
+            bgColor: "rgba(139, 92, 246, 0.1)",
+            targetHours: 20,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "الانضباط الصارم باستمارة التأمل المهني الرباعية (ماذا حدث، لماذا، المشاعر والدروس، التحسين المستقبلي)، وممارسة الإشراف الذاتي واليقظة الذهنية.",
+            keyIndicators: [
+                "استيفاء استمارة التأمل الرباعية المعتمدة لجميع الممارسات والمهمات الميدانية.",
+                "المساءلة الشجاعة للذات والاعتراف بالنقاط العمياء والتعامل مع التحويل العاطفي.",
+                "وضع وتنفيذ خطط تحسين ذاتية دورية متواصلة ومتابعة قياس أثرها."
+            ],
+            linkedCompetencies: ["C104", "C404", "C901"],
+            requiredEvidences: ["استمارات التأمل الرباعية للمهام 1-8", "سجلات الإشراف الذاتي", "مصفوفة خطط التحسين"]
+        },
+        {
+            id: "C14-09",
+            code: "applied_research",
+            title: "البحث العلمي التطبيقي",
+            subtitle: "Applied Scientific Research & APA7 Rigor",
+            icon: "book-open",
+            color: "#B45309",
+            bgColor: "rgba(180, 83, 9, 0.1)",
+            targetHours: 30,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "إعداد وإنتاج أوراق علمية تطبيقية محكمة تتناول قضايا الكوتشنج المعاصرة وفق أصول البحث الرصين والتوثيق الأكاديمي الدولي APA 7.",
+            keyIndicators: [
+                "استيفاء ورقة علمية تطبيقية متكاملة تتجاوز 50 صفحة (58 صفحة منجزة).",
+                "توثيق ببليوجرافي دقيق بنظام APA الإصدار السابع خلو تام من أي انتحال علمي.",
+                "تقديم توصيات إجرائية استراتيجية قابلة للتنفيذ في سوق الكوتشنج الإقليمي."
+            ],
+            linkedCompetencies: ["C501", "C502", "C503", "C504", "C505"],
+            requiredEvidences: ["الورقة العلمية التطبيقية المعتمدة (58 صفحة)", "تقرير فحص الاقتباس والسرقة العلمية", "محضر تحكيم اللجنة"]
+        },
+        {
+            id: "C14-10",
+            code: "professional_innovation",
+            title: "الابتكار المهني",
+            subtitle: "Professional Innovation & IP Creation",
+            icon: "lightbulb",
+            color: "#EA580C",
+            bgColor: "rgba(234, 88, 12, 0.1)",
+            targetHours: 25,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "ابتكار مقاييس ونماذج كوتشنجية عربية أصيلة تلبي احتياجات البيئة المحلية، وتطوير مشاريع تخرج ريادية ذات جاهزية للتحول إلى حلول استشارية SaaS.",
+            keyIndicators: [
+                "تطوير مقياس مؤشرات النضج القيادي والدافعية المهنية (LMMI) كإضافة نوعية.",
+                "تصميم منظومة 'تمكين 360' للذكاء الكوتشنجي كمشروع تخرج ابتكاري.",
+                "حيازة مرتبة الشرف الأولى في التحكيم مع التوصية بالنشر والتطبيق المؤسسي."
+            ],
+            linkedCompetencies: ["C601", "C602", "C603", "C604", "C605"],
+            requiredEvidences: ["دليل مقياس LMMI المبتكر", "وثائق مشروع تخرج تمكين 360", "شهادة إجازة اللجنة بمرتبة الشرف"]
+        },
+        {
+            id: "C14-11",
+            code: "digital_fluency",
+            title: "الكفاية الرقمية",
+            subtitle: "Digital Fluency & Responsible AI",
+            icon: "cpu",
+            color: "#06B6D4",
+            bgColor: "rgba(6, 182, 212, 0.1)",
+            targetHours: 15,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "التوظيف المسؤول والواعي لأدوات الذكاء الاصطناعي في تحليل أنماط الحالات منزوعة الهوية، وضمان حوكمة وأمن البيانات الرقمية للكوتشنج.",
+            keyIndicators: [
+                "التطبيق المشروط للذكاء الاصطناعي مع التدقيق والمراجعة البشرية المستقلة.",
+                "نزع الهوية الرقمية الصارم وتشفير المستندات والتسجيلات السحابية.",
+                "إدارة المنصات الكوتشنجية الرقمية وتتبع مؤشرات الأداء الحية بكفاءة."
+            ],
+            linkedCompetencies: ["C701", "C702", "C703", "C704"],
+            requiredEvidences: ["سياسة الحوكمة الرقمية والذكاء الاصطناعي", "شهادات نزع المعرفات الرقمية", "سجلات التدقيق الأمني"]
+        },
+        {
+            id: "C14-12",
+            code: "ethics_boundaries",
+            title: "الأخلاقيات وحدود الاختصاص",
+            subtitle: "Ethics & Practice Boundaries (Critical Gate)",
+            icon: "shield-check",
+            color: "#DC2626",
+            bgColor: "rgba(220, 38, 38, 0.1)",
+            targetHours: 20,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            isCriticalGate: true,
+            description: "صمام أمان الممارسة الاحترافية: بوابة عبور مستقلة غير خاضعة للتعويض الحسابي تشمل كرامة المستفيد، السرية، نزع المعرفات، وإحالة الحالات المتجاوزة فوراً.",
+            keyIndicators: [
+                "الاجتياز الكامل لكافة نقاط التدقيق السبع في البوابة الأخلاقية المستقلة.",
+                "التطبيق الفوري لبروتوكول الإحالة الطبية/النفسية المعتمد عند رصد الأعراض.",
+                "تفعيل ميثاق الشرف والامتناع التام عن أي وضعية تضارب مصالح."
+            ],
+            linkedCompetencies: ["C801", "C802", "C803", "C804", "C805", "C806", "C807"],
+            requiredEvidences: ["سجل الإحالات التخصصية المعتمد (REF-2026-01)", "إقرارات السرية المستنيرة", "شهادة اجتياز البوابة الأخلاقية"]
+        },
+        {
+            id: "C14-13",
+            code: "impact_measurement",
+            title: "قياس الأثر",
+            subtitle: "Impact Measurement & Transformation Metrics",
+            icon: "trending-up",
+            color: "#10B981",
+            bgColor: "rgba(16, 185, 129, 0.1)",
+            targetHours: 20,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "تصميم وتطبيق مؤشرات الأداء الكوتشنجية النوعية والكمية، واستبانات الأثر البعدي، ومتابعة استدامة التحول السلوكي والقيادي لدى المستفيدين والمؤسسات.",
+            keyIndicators: [
+                "تطبيق أدوات تقييم الأثر القبلي والبعدي على جميع الحالات العشرين.",
+                "توثيق ما لا يقل عن 3 مؤشرات أثر سلوكية وتنظيمية مقاسة لكل حالة متكاملة.",
+                "إجراء جلسات متابعة الاستدامة بعد 3 أشهر من إغلاق التحالف الكوتشنجي."
+            ],
+            linkedCompetencies: ["C106", "C305", "C605"],
+            requiredEvidences: ["استمارات الأثر البعدي الموقعة", "تقارير العائد على الاستثمار الكوتشنجي ROI", "شهادات القيادات المؤسسية"]
+        },
+        {
+            id: "C14-14",
+            code: "documentation_communication",
+            title: "التوثيق والتواصل المهني",
+            subtitle: "Professional Documentation & Communication",
+            icon: "file-text",
+            color: "#0B1B3D",
+            bgColor: "rgba(11, 27, 61, 0.1)",
+            targetHours: 25,
+            masteryLevel: 5,
+            status: "mastered",
+            progressPct: 100,
+            description: "صياغة ملف الإنجاز المهني المحكم بأعلى معايير الحوكمة والترقيم، وإتقان التواصل الإشرافي الشفاف والفعال وتقديم التغذية الراجعة النوعية للأقران والمستفيدين.",
+            keyIndicators: [
+                "استيفاء ملف إنجاز مهني رقمي نموذجي خلو تام من أي ثغرات توثيقية.",
+                "تقديم تغذية راجعة وصفية تطويرية رصينة للأقران بجلسات الإشراف.",
+                "المشاركة الفاعلة في الحوار الإشرافي والتواصل المهني عبر قنوات المنصة."
+            ],
+            linkedCompetencies: ["C103", "C105", "C901"],
+            requiredEvidences: ["ملف الإنجاز المهني الشامل (Portfolio)", "سجلات التغذية الراجعة الإشرافية", "مراسلات التوجيه في مركز المحادثات"]
+        }
+    ],
+
     // 43 Competencies + 1 Supervision = 44 total items
     competencies: [
         // D1: Core Professional (6)
@@ -2830,7 +3129,144 @@ const DEFAULT_PROGRAM_DATA = {
                 { version: "v1.0", date: "2026-05-12", status: "approved", note: "اعتماد سجل الإشراف بامتياز كامل." }
             ]
         }
-    ]
+    ],
+
+    // Dynamic Certificate & Official Dossier Configuration
+    certificateConfig: {
+        title: "محضر التدقيق والجاهزية المهنية للاعتماد النهائي",
+        subtitle: "المطابقة النظامية الشاملة لكافة متطلبات حقيبة تأهيل الماستر كوتش (الإصدار 3.0 - 2026)",
+        documentRef: "AUDIT-2026-MC084",
+        issueDate: "2026-05-20",
+        orgName: "شركة تمكين الرؤية للاستشارات المهنية",
+        programSub: "برنامج إعداد وتأهيل الماستر كوتش • الإصدار 3.0 • النسخة التطويرية 2026",
+        accreditationNote: "cyce52.com • ترخيص مهني معتمد",
+        signatory1: {
+            title: "المشرف الميداني المعتمد",
+            name: "كوتش د. فهد السبيعي",
+            sub: "توقيع إلكتروني معتمد #FS-882"
+        },
+        signatory2: {
+            title: "رئيس اللجنة والمدير العام",
+            name: "الماستر كوتش عبدالكريم الخليفي",
+            sub: "مؤسس شركة تمكين الرؤية #AK-001"
+        },
+        stampText: {
+            line1: "تمكين الرؤية",
+            line2: "اعتماد مهني",
+            line3: "2026"
+        },
+        committeeVerdictText: "بناءً على فحص كافة الأدلة الثبوتية، والتحقق المستقل من الساعات والممارسة الميدانية، والتأكد التام من استيفاء بوابة النزاهة الأخلاقية، ومناقشة مشروع التخرج والدفاع؛ توصي اللجنة بإجماع الآراء بمنح الكوتش أحمد بن صالح الشمري شهادة إتمام برنامج إعداد وتأهيل الماستر كوتش بتقدير ممتاز مع مرتبة الشرف، ورفع التوصية للاعتماد المهني النهائي.",
+        rows: [
+            {
+                id: "cert_row_1",
+                title: "الساعات المعتمدة الإجمالية",
+                target: "240 ساعة",
+                achieved: "240 ساعة",
+                indicator: "استيفاء كامل للمكونات السبعة",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_2",
+                title: "مشروعات الكوتشنج الميدانية",
+                target: "20 حالة متكاملة",
+                achieved: "20 حالة كاملة",
+                indicator: "ملفات كاملة تشمل التدخل والأثر",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_3",
+                title: "الجلسات الميدانية الموثقة",
+                target: "30 جلسة موزعة",
+                achieved: "30 جلسة",
+                indicator: "تقارير واعتمادات مسبقة",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_4",
+                title: "تطبيقات الأدوات (MBTI / عجلة / SWOT)",
+                target: "90 تطبيقاً (30 لكل أداة)",
+                achieved: "90 تطبيقاً",
+                indicator: "تحقق صارم من عدم التكرار الداخلي",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_5",
+                title: "النماذج الابتكارية للكوتشنج",
+                target: "10 نماذج مبتكرة",
+                achieved: "10 نماذج",
+                indicator: "مختبرة ومقاسة الأثر",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_6",
+                title: "أداة تحليل الشخصية المبتكرة",
+                target: "أداة واحدة على الأقل",
+                achieved: "مقياس LMMI",
+                indicator: "تحقق سيكومتري أولي موثق",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_7",
+                title: "تهيئة مؤسسة للكوتشنج",
+                target: "مؤسسة واحدة على الأقل",
+                achieved: "شركة ريادة التقنية للاستشارات والحلول السحابية",
+                indicator: "قرافي للمسارات + Pfeiffer المعدل",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_8",
+                title: "التسجيلات الاحترافية بالموضوعات",
+                target: "5 تسجيلات صوتية",
+                achieved: "5 تسجيلات",
+                indicator: "تغذية راجعة بطوابع زمنية",
+                verdict: "مستوفى 100%",
+                status: "approved"
+            },
+            {
+                id: "cert_row_9",
+                title: "الورقة العلمية التطبيقية",
+                target: "50 صفحة كحد أدنى",
+                achieved: "58 صفحة (APA7)",
+                indicator: "عرض مرئي في الملتقى السنوي",
+                verdict: "مستوفى بامتياز",
+                status: "approved"
+            },
+            {
+                id: "cert_row_10",
+                title: "مشروع التخرج الابتكاري والدفاع",
+                target: "مشروع مطور ومجاز",
+                achieved: "منظومة تمكين 360",
+                indicator: "دفاع علني ومناقشة أمام اللجنة",
+                verdict: "مجاز بامتياز",
+                status: "approved"
+            },
+            {
+                id: "cert_row_11",
+                title: "بوابة السلامة والنزاهة الأخلاقية",
+                target: "شرط مستقل وحاسم",
+                achieved: "اجتياز 100%",
+                indicator: "خلو من المخالفات وإحالة نموذجية",
+                verdict: "اجتياز مطلق",
+                status: "approved"
+            },
+            {
+                id: "cert_row_12",
+                title: "الكفايات الـ 43 الشاملة",
+                target: "43 كفاية فرعية",
+                achieved: "43 كفاية متحققة",
+                indicator: "أدلة متقاطعة وتأملات رباعية",
+                verdict: "متحققة بالكامل",
+                status: "approved"
+            }
+        ]
+    }
 };
 
 // Storage helper functions
@@ -2840,7 +3276,14 @@ function loadProgramData() {
     try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
-            return JSON.parse(stored);
+            const parsed = JSON.parse(stored);
+            if (!parsed.core14Domains || !Array.isArray(parsed.core14Domains) || parsed.core14Domains.length !== 14) {
+                parsed.core14Domains = JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA.core14Domains));
+            }
+            if (!parsed.certificateConfig) {
+                parsed.certificateConfig = JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA.certificateConfig));
+            }
+            return parsed;
         }
     } catch (e) {
         console.warn("Could not load from localStorage, using default data.", e);

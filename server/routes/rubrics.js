@@ -5,7 +5,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 function resolveCoachId(req) {
     if (req.user.role === 'admin') {
-        const queryId = req.query.coachId || req.body.coachId;
+        const queryId = (req.query && req.query.coachId) || (req.body && req.body.coachId);
         return queryId ? parseInt(queryId, 10) : 1;
     }
     return req.coach ? req.coach.id : null;
@@ -127,7 +127,7 @@ router.post('/evaluate', authenticate, requireRole('admin'), (req, res) => {
 
         return res.json({
             message: isCriticalBlocker
-                ? '⚠️ تنبيه: تم رصد التقييم ولكن تم تفعيل الحظر الأخلاقي الحاسم لهبوط المعيار الحرج دون المستوى 3'
+                ? 'تنبيه: تم رصد التقييم ولكن تم تفعيل الحظر الأخلاقي الحاسم لهبوط المعيار الحرج دون المستوى 3'
                 : 'تم رصد تقييم المعيار وحساب المتوسط المرجح بنجاح',
             criterion,
             rubricWeightedScore: parseFloat(rubricWeightedScore.toFixed(2)),

@@ -7,11 +7,15 @@
 (function () {
     'use strict';
 
+    // Premium SVG Vector Icon Helper
+    const icon = (name, opts) => (typeof window !== 'undefined' && window.AppIcons ? window.AppIcons.get(name, opts) : '');
+
     // Application State
     const appState = {
         data: null,
         currentRole: 'participant', // 'participant' | 'supervisor' | 'committee'
         currentTab: 'dashboard',
+        viewMode: 'onepage', // 'onepage' (default for trained coach) | 'tabs'
         theme: 'light',
         activeTask: null,
         activeRubric: 'sessions',
@@ -34,7 +38,22 @@
         pendingFileUpload: null,
         pendingFileName: '',
         pendingFileType: 'document',
-        pendingFileSizeBytes: 0
+        pendingFileSizeBytes: 0,
+        compsViewMode: 'domains14', // 'domains14' | 'subcomps44'
+        chatState: {
+            channels: [],
+            activeChannelId: null,
+            messages: [],
+            isRecording: false,
+            recordStartTime: null,
+            mediaRecorder: null,
+            audioChunks: [],
+            recordingTimerId: null,
+            searchQuery: '',
+            eventSource: null,
+            currentPlayingAudioMsgId: null,
+            audioElement: null
+        }
     };
 
     // DOM Elements Cache
@@ -61,7 +80,12 @@
         userSessionWidget: document.getElementById('user-session-widget'),
         authModal: document.getElementById('auth-modal'),
         tabAdminDashboard: document.getElementById('tab-admin-dashboard'),
-        panelAdminDashboard: document.getElementById('panel-admin-dashboard')
+        panelAdminDashboard: document.getElementById('panel-admin-dashboard'),
+        panelChat: document.getElementById('panel-chat'),
+        chatContentArea: document.getElementById('chat-content-area'),
+        chatMediaModal: document.getElementById('chat-media-modal'),
+        domain14Modal: document.getElementById('domain14-modal'),
+        chatNavBadge: document.getElementById('chat-nav-badge')
     };
 
     // Initialize Application
@@ -104,6 +128,7 @@
         }
 
         renderUserSession();
+        await loadChatChannels();
         renderAll();
     }
 
@@ -128,8 +153,20 @@
             });
         });
 
-        document.querySelectorAll('.btn-close-modal, .modal-backdrop-close').forEach(btn => {
-            btn.addEventListener('click', closeAllModals);
+        // Close modal when clicking on backdrop overlay
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) {
+                    closeAllModals();
+                }
+            });
+        });
+
+        // Delegate close clicks for dynamically created modal close buttons
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.btn-close-modal, .modal-backdrop-close')) {
+                closeAllModals();
+            }
         });
 
         document.addEventListener('keydown', function (e) {
@@ -140,8 +177,15 @@
 
         const resetBtn = document.getElementById('btn-reset-data');
         if (resetBtn) {
-            resetBtn.addEventListener('click', function () {
-                if (confirm('هل أنت متأكد من رغبتك في إعادة تعيين كافة البيانات إلى الحالة النموذجية الافتراضية؟')) {
+            resetBtn.addEventListener('click', async function () {
+                const confirmed = await confirmDialog({
+                    title: 'استعادة البيانات النموذجية',
+                    message: 'هل أنت متأكد من رغبتك في إعادة تعيين كافة البيانات إلى الحالة النموذجية الافتراضية؟ سيتم استبدال التعديلات غير المحفوظة.',
+                    confirmText: 'نعم، استعادة البيانات',
+                    cancelText: 'إلغاء',
+                    danger: true
+                });
+                if (confirmed) {
                     appState.data = window.ProgramStore.reset();
                     showToast('تمت استعادة البيانات النموذجية بنجاح.', 'success');
                     renderAll();
@@ -169,6 +213,54 @@
                 window.print();
             });
         }
+
+        // One-Page ScrollSpy: Automatically highlight active section on scroll
+        let isScrollThrottled = false;
+        window.addEventListener('scroll', function () {
+            if (isScrollThrottled || appState.viewMode !== 'onepage') return;
+            isScrollThrottled = true;
+            setTimeout(() => { isScrollThrottled = false; }, 100);
+
+            const scrollPos = window.pageYOffset + 180;
+            const panels = [
+                'panel-dashboard',
+                'panel-tasks',
+                'panel-quant',
+                'panel-chat',
+                'panel-rubrics',
+                'panel-competencies',
+                'panel-ethics',
+                'panel-labs',
+                'panel-report'
+            ];
+
+            let activeId = 'panel-dashboard';
+            for (const id of panels) {
+                const el = document.getElementById(id);
+                if (el && el.offsetTop <= scrollPos) {
+                    activeId = id;
+                }
+            }
+
+            // Update sticky pills active state
+            document.querySelectorAll('.sticky-nav-pill').forEach(pill => {
+                if (pill.getAttribute('data-target') === activeId) {
+                    pill.classList.add('active');
+                } else {
+                    pill.classList.remove('active');
+                }
+            });
+
+            // Update top nav tabs active state
+            const targetTabName = activeId.replace('panel-', '');
+            DOM.navTabs.forEach(tab => {
+                if (tab.getAttribute('data-tab') === targetTabName) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+        }, { passive: true });
     }
 
     // Role Titles
@@ -223,8 +315,107 @@
         }
     }
 
-    // Switch Tabs
+    // Set View Mode: 'onepage' (default for trained coach) | 'tabs'
+    function setViewMode(mode) {
+        appState.viewMode = mode;
+        const mainContainer = document.getElementById('main-content-container') || DOM.appMainContent;
+        const btnOnePage = document.getElementById('btn-mode-onepage');
+        const btnTabs = document.getElementById('btn-mode-tabs');
+
+        if (mode === 'onepage') {
+            if (mainContainer) mainContainer.classList.add('mode-onepage');
+            if (btnOnePage) btnOnePage.classList.add('active');
+            if (btnTabs) btnTabs.classList.remove('active');
+            showToast('تم تفعيل وضع الصفحة الموحدة للمتدرب (One Page)', 'info');
+            initChatStream();
+            scrollToSection('panel-dashboard');
+        } else {
+            if (mainContainer) mainContainer.classList.remove('mode-onepage');
+            if (btnOnePage) btnOnePage.classList.remove('active');
+            if (btnTabs) btnTabs.classList.add('active');
+            showToast('تم تفعيل وضع التبويبات المنفصلة', 'info');
+            switchTab(appState.currentTab || 'dashboard');
+        }
+    }
+
+    // Smooth In-Page Section Scroll for One-Page Layout
+    function scrollToSection(panelId) {
+        if (panelId === 'panel-chat' || panelId === 'chat') {
+            if (window.ChatWidget && typeof window.ChatWidget.open === 'function') {
+                window.ChatWidget.open();
+                return;
+            }
+        }
+
+        let el = document.getElementById(panelId);
+        if (!el && !panelId.startsWith('panel-')) {
+            el = document.getElementById(`panel-${panelId}`);
+        }
+        if (!el) return;
+
+        const targetTabName = el.getAttribute('data-section-name') || el.id.replace('panel-', '');
+        appState.currentTab = targetTabName;
+
+        // Update nav tabs active indicator
+        DOM.navTabs.forEach(tab => {
+            if (tab.getAttribute('data-tab') === targetTabName) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        // Update sticky pills active indicator
+        document.querySelectorAll('.sticky-nav-pill').forEach(pill => {
+            if (pill.getAttribute('data-target') === el.id) {
+                pill.classList.add('active');
+            } else {
+                pill.classList.remove('active');
+            }
+        });
+
+        const headerOffset = 135;
+        const elementPosition = el.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+        window.scrollTo({
+            top: Math.max(0, offsetPosition),
+            behavior: 'smooth'
+        });
+    }
+
+    // Toggle Chat Drawer Helper
+    function toggleChatDrawer(forceOpen) {
+        if (!window.ChatWidget) return;
+        if (forceOpen === true) window.ChatWidget.open();
+        else if (forceOpen === false) window.ChatWidget.close();
+        else window.ChatWidget.toggle();
+    }
+
+    // Switch Tabs / Navigation Dispatcher
     function switchTab(tabId) {
+        if (tabId === 'chat') {
+            if (window.ChatWidget && typeof window.ChatWidget.open === 'function') {
+                window.ChatWidget.open();
+                return;
+            }
+        }
+
+        const isOnePage = appState.viewMode === 'onepage' && tabId !== 'admin-dashboard';
+        const mainContainer = document.getElementById('main-content-container') || DOM.appMainContent;
+
+        if (isOnePage) {
+            if (mainContainer) mainContainer.classList.add('mode-onepage');
+            scrollToSection(tabId);
+            return;
+        }
+
+        if (tabId === 'admin-dashboard' && mainContainer) {
+            mainContainer.classList.remove('mode-onepage');
+        } else if (appState.viewMode === 'onepage' && mainContainer) {
+            mainContainer.classList.add('mode-onepage');
+        }
+
         appState.currentTab = tabId;
         DOM.navTabs.forEach(tab => {
             if (tab.getAttribute('data-tab') === tabId) {
@@ -241,6 +432,20 @@
                 panel.classList.remove('active');
             }
         });
+
+        if (tabId === 'chat') {
+            renderChatPanel();
+            initChatStream();
+            if (appState.chatState.activeChannelId) {
+                loadChatMessages(appState.chatState.activeChannelId).then(() => {
+                    renderChatMessagesOnly();
+                    scrollChatToBottom();
+                });
+            }
+        } else if (appState.chatState.audioElement && !appState.chatState.audioElement.paused) {
+            try { appState.chatState.audioElement.pause(); } catch (_) {}
+            appState.chatState.currentPlayingAudioMsgId = null;
+        }
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -282,6 +487,7 @@
         renderLabsPanel();
         renderReportDossier();
         renderAdminDashboard();
+        renderChatPanel();
     }
 
     // Render Header & Top Strip
@@ -313,7 +519,7 @@
         const { hasBlocker } = checkEthicalBlocker();
         if (DOM.stripEthicsVal) {
             if (hasBlocker) {
-                DOM.stripEthicsVal.innerHTML = `<span class="badge-status referred" style="background:#DC2626; color:#FFF; font-weight:700;">⚠️ حظر أخلاقي</span>`;
+                DOM.stripEthicsVal.innerHTML = `<span class="badge-status referred" style="background:#DC2626; color:#FFF; font-weight:700;">${icon("alertTriangle", {size:13, style:"vertical-align:-1px; margin-left:3px;"})} حظر أخلاقي</span>`;
             } else {
                 DOM.stripEthicsVal.innerHTML = `<span class="ethics-pill-pass">اجتياز معتمد 100%</span>`;
             }
@@ -333,7 +539,7 @@
             widget.innerHTML = `
                 <div class="user-profile-badge">
                     <div class="user-profile-avatar ${isAdmin ? 'admin' : ''}">
-                        ${isAdmin ? '👑' : '🎓'}
+                        ${isAdmin ? icon('crown', {size:18}) : icon('graduationCap', {size:18})}
                     </div>
                     <div>
                         <div class="user-profile-name">${user.name}</div>
@@ -345,7 +551,7 @@
                         </div>
                     </div>
                     <button class="btn-auth-logout" onclick="window.App.handleLogout()" title="تسجيل الخروج">
-                        خروج ⏻
+                        ${icon('power', {size:13, style:'margin-left:4px;'})} خروج
                     </button>
                 </div>
             `;
@@ -387,28 +593,28 @@
                 <!-- 1-Click Demo Accounts -->
                 <div class="quick-demo-accounts">
                     <div class="quick-demo-title">
-                        <span>⚡ الوصول السريع بحسابات النظام المعتمدة:</span>
+                        <span>${icon('zap', {size:16, style:'color:var(--status-amber); vertical-align:-2px; margin-left:4px;'})} الوصول السريع بحسابات النظام المعتمدة:</span>
                     </div>
                     <button class="quick-demo-btn admin-quick" onclick="window.App.handleQuickLogin('abdelkarim@cyce52.com', 'Master@2026')">
                         <div>
-                            <strong>👑 الماستر كوتش عبدالكريم الخليفي (Admin)</strong>
+                            <strong>${icon('crown', {size:16, style:'color:var(--status-amber); vertical-align:-2px; margin-left:4px;'})} الماستر كوتش عبدالكريم الخليفي (Admin)</strong>
                             <div style="font-size:0.75rem; color:var(--text-muted);">المشرف العام • تقييم الروبركات • التدقيق والاعتماد</div>
                         </div>
-                        <span style="font-size:0.8rem; color:var(--brand-gold); font-weight:700;">دخول ➔</span>
+                        <span style="font-size:0.8rem; color:var(--brand-gold); font-weight:700;">دخول ${icon("arrowLeft", {size:13, style:"vertical-align:-2px; margin-right:2px;"})}</span>
                     </button>
                     <button class="quick-demo-btn" onclick="window.App.handleQuickLogin('coach@cyce52.com', 'Coach@2026')">
                         <div>
-                            <strong>🎓 كوتش أحمد بن صالح الشمري (MC-2026-084)</strong>
+                            <strong>${icon('graduationCap', {size:16, style:'color:var(--brand-blue-light); vertical-align:-2px; margin-left:4px;'})} كوتش أحمد بن صالح الشمري (MC-2026-084)</strong>
                             <div style="font-size:0.75rem; color:var(--text-muted);">مرشح ماستر كوتش • إيداع المهام • استيفاء الساعات</div>
                         </div>
-                        <span style="font-size:0.8rem; color:var(--brand-blue-light); font-weight:700;">دخول ➔</span>
+                        <span style="font-size:0.8rem; color:var(--brand-blue-light); font-weight:700;">دخول ${icon("arrowLeft", {size:13, style:"vertical-align:-2px; margin-right:2px;"})}</span>
                     </button>
                     <button class="quick-demo-btn" onclick="window.App.handleQuickLogin('sara@cyce52.com', 'Coach@2026')">
                         <div>
-                            <strong>👩‍💼 كوتش سارة بنت خالد المطيري (MC-2026-085)</strong>
+                            <strong>${icon('user', {size:16, style:'color:var(--status-emerald-light); vertical-align:-2px; margin-left:4px;'})} كوتش سارة بنت خالد المطيري (MC-2026-085)</strong>
                             <div style="font-size:0.75rem; color:var(--text-muted);">مرشحة جديدة • مهام قيد التدقيق الإشرافي</div>
                         </div>
-                        <span style="font-size:0.8rem; color:var(--status-emerald-light); font-weight:700;">دخول ➔</span>
+                        <span style="font-size:0.8rem; color:var(--status-emerald-light); font-weight:700;">دخول ${icon("arrowLeft", {size:13, style:"vertical-align:-2px; margin-right:2px;"})}</span>
                     </button>
                 </div>
 
@@ -466,7 +672,7 @@
                 `}
             </div>
         `;
-        modal.classList.add('active');
+        openModalWithFocus(modal);
     }
 
     function switchAuthTab(tab) {
@@ -492,6 +698,16 @@
                     appState.data = coachData.coach;
                 }
             }
+            // Refresh chat channels and SSE stream for the authenticated user session
+            appState.chatState.channels = [];
+            appState.chatState.activeChannelId = null;
+            appState.chatState.messages = [];
+            await loadChatChannels();
+            initChatStream();
+            if (window.ChatWidget && typeof window.ChatWidget.handleAuthChange === 'function') {
+                window.ChatWidget.handleAuthChange();
+            }
+
             closeAllModals();
             renderUserSession();
             renderAll();
@@ -531,6 +747,13 @@
                     appState.data = coachData.coach;
                 }
             }
+            // Refresh chat channels and SSE stream for the newly registered coach
+            appState.chatState.channels = [];
+            appState.chatState.activeChannelId = null;
+            appState.chatState.messages = [];
+            await loadChatChannels();
+            initChatStream();
+
             closeAllModals();
             renderUserSession();
             renderAll();
@@ -540,11 +763,27 @@
     }
 
     async function handleLogout() {
+        if (appState.chatState.audioElement) {
+            try { appState.chatState.audioElement.pause(); } catch (_) {}
+            appState.chatState.currentPlayingAudioMsgId = null;
+        }
+        if (appState.chatState.eventSource) {
+            try { appState.chatState.eventSource.close(); } catch (_) {}
+            appState.chatState.eventSource = null;
+        }
+        appState.chatState.channels = [];
+        appState.chatState.messages = [];
+        appState.chatState.activeChannelId = null;
+
         if (window.ApiClient) {
             await window.ApiClient.logout();
         }
+        if (window.ChatWidget && typeof window.ChatWidget.handleAuthChange === 'function') {
+            window.ChatWidget.handleAuthChange();
+        }
         showToast('تم تسجيل الخروج بنجاح', 'info');
         renderUserSession();
+        await loadChatChannels();
         renderAll();
         switchTab('dashboard');
     }
@@ -564,7 +803,6 @@
         }
 
         if (coaches.length === 0) {
-            // Fallback for standalone preview
             coaches = [
                 {
                     id: 1,
@@ -599,19 +837,23 @@
         const totalApproved = coaches.reduce((acc, c) => acc + (c.tasksSummary ? c.tasksSummary.approved : 0), 0);
         const avgRubrics = (coaches.reduce((acc, c) => acc + (c.rubricsAverage || 4.5), 0) / (totalCoaches || 1)).toFixed(2);
 
+        appState.adminActiveTab = appState.adminActiveTab || 'queue';
+        const certConfig = appState.data.certificateConfig || window.ProgramStore.DEFAULT_DATA.certificateConfig;
+        const certRows = certConfig.rows || [];
+
         container.innerHTML = `
             <div style="margin-bottom:2rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
                     <div>
                         <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.25rem;">
-                            <span class="badge-status approved">لوحة القيادة التنفيذية</span>
+                            <span class="badge-status approved">لوحة القيادة التنفيذية الكاملة</span>
                             <span style="color:var(--brand-gold); font-weight:700; font-size:0.9rem;">إشراف الماستر كوتش د. عبدالكريم الخليفي</span>
                         </div>
-                        <h2 style="font-size:1.6rem; color:var(--text-primary);">
-                            لوحة متابعة وتدقيق الكوتشز المرشحين (Admin Dashboard)
+                        <h2 style="font-size:1.6rem; color:var(--text-primary); font-weight:900;">
+                            غرفة التحكم الإداري الشامل وتخصيص المنظومة
                         </h2>
                         <p style="color:var(--text-secondary); font-size:0.88rem;">
-                            متابعة التقدم المزدوج، رصد التقييمات في الروبركات الستة، فحص البوابة الأخلاقية، وإصدار قرارات التخرج المعتمدة.
+                            إدارة ديناميكية كاملة: بنود الشهادة والمحضر، بنك المهام، مصفوفة الكفايات، روبركات التقييم، والمستهدفات.
                         </p>
                     </div>
 
@@ -625,160 +867,600 @@
                     </div>
                 </div>
 
-                <!-- KPI Metrics Cards -->
-                <div class="admin-kpi-grid">
-                    <div class="admin-kpi-card">
-                        <div class="admin-kpi-icon blue">👥</div>
-                        <div>
-                            <div class="admin-kpi-val">${totalCoaches}</div>
-                            <div class="admin-kpi-label">إجمالي الكوتشز المسجلين</div>
-                        </div>
-                    </div>
-                    <div class="admin-kpi-card">
-                        <div class="admin-kpi-icon gold">⏳</div>
-                        <div>
-                            <div class="admin-kpi-val" style="color:var(--brand-gold);">${totalPending}</div>
-                            <div class="admin-kpi-label">مهام قيد التدقيق الإشرافي</div>
-                        </div>
-                    </div>
-                    <div class="admin-kpi-card">
-                        <div class="admin-kpi-icon emerald">✓</div>
-                        <div>
-                            <div class="admin-kpi-val" style="color:var(--status-emerald-light);">${totalApproved}</div>
-                            <div class="admin-kpi-label">مهام معتمدة بالروبرك</div>
-                        </div>
-                    </div>
-                    <div class="admin-kpi-card">
-                        <div class="admin-kpi-icon purple">⭐</div>
-                        <div>
-                            <div class="admin-kpi-val" style="color:#A78BFA;">${avgRubrics}</div>
-                            <div class="admin-kpi-label">متوسط الروبركات (من 5.0)</div>
-                        </div>
-                    </div>
+                <!-- Executive Admin Segmented Navigation Tabs -->
+                <div class="admin-segmented-tabs">
+                    <button class="admin-tab-btn ${appState.adminActiveTab === 'queue' ? 'active' : ''}" onclick="window.App.switchAdminTab('queue')">
+                        ${icon('clipboard', {size:16, style:'margin-left:4px;'})} طابور المراجعة والمصادقات
+                        ${totalPending > 0 ? `<span class="badge-status submitted" style="font-size:0.7rem; padding:2px 6px;">${totalPending}</span>` : ''}
+                    </button>
+                    <button class="admin-tab-btn ${appState.adminActiveTab === 'certificate' ? 'active' : ''}" onclick="window.App.switchAdminTab('certificate')">
+                        ${icon('award', {size:16, style:'margin-left:4px;'})} محرر بنود الشهادة والمحضر (${certRows.length})
+                    </button>
+                    <button class="admin-tab-btn ${appState.adminActiveTab === 'tasks' ? 'active' : ''}" onclick="window.App.switchAdminTab('tasks')">
+                        ${icon('folder', {size:16, style:'margin-left:4px;'})} إدارة بنك المهام (${appState.data.tasks.length})
+                    </button>
+                    <button class="admin-tab-btn ${appState.adminActiveTab === 'competencies' ? 'active' : ''}" onclick="window.App.switchAdminTab('competencies')">
+                        ${icon('target', {size:16, style:'margin-left:4px;'})} مصفوفة الكفايات (${appState.data.competencies.length})
+                    </button>
+                    <button class="admin-tab-btn ${appState.adminActiveTab === 'rubrics_quotas' ? 'active' : ''}" onclick="window.App.switchAdminTab('rubrics_quotas')">
+                        ${icon('scale', {size:16, style:'margin-left:4px;'})} الروبركات والمستهدفات
+                    </button>
+                    <button class="admin-tab-btn ${appState.adminActiveTab === 'coaches' ? 'active' : ''}" onclick="window.App.switchAdminTab('coaches')">
+                        ${icon('users', {size:16, style:'margin-left:4px;'})} حسابات الكوتشز (${coaches.length})
+                    </button>
                 </div>
 
-                <!-- Coaches Roster Table -->
-                <div class="coaches-table-card">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-                        <h3 style="font-size:1.15rem; color:var(--brand-blue-light);">
-                            سجل الكوتشز المسجلين ومتابعة الإنجاز
-                        </h3>
-                        <span style="font-size:0.8rem; color:var(--text-muted);">
-                            انقر على أي كوتش لمعاينة وتدقيق ملف إنجازه وروبركاته
-                        </span>
+                <!-- TAB 1: REVIEW QUEUE & ROSTER -->
+                ${appState.adminActiveTab === 'queue' ? `
+                    <!-- KPI Metrics Cards -->
+                    <div class="admin-kpi-grid">
+                        <div class="admin-kpi-card">
+                            <div class="admin-kpi-icon blue">${icon("users", {size:22})}</div>
+                            <div>
+                                <div class="admin-kpi-val">${totalCoaches}</div>
+                                <div class="admin-kpi-label">إجمالي الكوتشز المسجلين</div>
+                            </div>
+                        </div>
+                        <div class="admin-kpi-card">
+                            <div class="admin-kpi-icon gold">${icon("clock", {size:22})}</div>
+                            <div>
+                                <div class="admin-kpi-val" style="color:var(--brand-gold);">${totalPending}</div>
+                                <div class="admin-kpi-label">مهام قيد التدقيق الإشرافي</div>
+                            </div>
+                        </div>
+                        <div class="admin-kpi-card">
+                            <div class="admin-kpi-icon emerald">${icon("checkCircle", {size:22})}</div>
+                            <div>
+                                <div class="admin-kpi-val" style="color:var(--status-emerald-light);">${totalApproved}</div>
+                                <div class="admin-kpi-label">مهام معتمدة بالروبرك</div>
+                            </div>
+                        </div>
+                        <div class="admin-kpi-card">
+                            <div class="admin-kpi-icon purple">${icon("star", {size:22, style:"fill:currentColor;"})}</div>
+                            <div>
+                                <div class="admin-kpi-val" style="color:#A78BFA;">${avgRubrics}</div>
+                                <div class="admin-kpi-label">متوسط الروبركات (من 5.0)</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style="overflow-x:auto;">
-                        <table class="coaches-table">
-                            <thead>
-                                <tr>
-                                    <th>الكوتش المرشح</th>
-                                    <th>كود الحقيبة</th>
-                                    <th>الرتبة المهنية</th>
-                                    <th>المهام المعتمدة</th>
-                                    <th>الأدوات (90)</th>
-                                    <th>متوسط الروبرك</th>
-                                    <th>البوابة الأخلاقية</th>
-                                    <th>حالة الاعتماد</th>
-                                    <th>الإجراء الإشرافي</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${coaches.map(c => `
-                                    <tr style="${appState.activeCoachId === c.id ? 'background:rgba(29, 78, 216, 0.12);' : ''}">
-                                        <td>
-                                            <div style="display:flex; align-items:center; gap:0.6rem;">
-                                                <div class="coach-avatar-initials">${c.name ? c.name.split(' ')[1]?.substring(0, 1) || 'ك' : 'ك'}</div>
-                                                <div>
-                                                    <strong>${c.name}</strong>
-                                                    <div style="font-size:0.75rem; color:var(--text-muted);">${c.email}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td><span class="comp-item-id">${c.candidate_code || c.candidateCode}</span></td>
-                                        <td><span style="font-size:0.8rem; color:var(--text-secondary);">${c.title}</span></td>
-                                        <td>
-                                            <span class="badge-status approved">${c.tasksSummary ? c.tasksSummary.approved : 0} معتمدة</span>
-                                            ${c.tasksSummary && c.tasksSummary.pending > 0 ? `<span class="badge-status submitted" style="margin-right:4px;">${c.tasksSummary.pending} قيد المراجعة</span>` : ''}
-                                        </td>
-                                        <td><strong>${c.toolsCompleted || 0}</strong> / 90</td>
-                                        <td><strong style="color:var(--brand-gold);">${c.rubricsAverage ? c.rubricsAverage.toFixed(2) : '4.50'}</strong> / 5.0</td>
-                                        <td>
-                                            <span class="ethics-pill-pass" style="font-size:0.75rem;">
-                                                ${c.ethicsPassed ? '✓ اجتياز 100%' : '⚠️ قيد التدقيق'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="badge-status ${c.audit_status === 'certified' ? 'approved' : c.audit_status === 'ready' ? 'submitted' : 'revision_required'}">
-                                                ${c.audit_status === 'certified' ? 'مجاز ومعتمد رسمياً' : c.audit_status === 'ready' ? 'مؤهل للمناقشة' : 'قيد الاستكمال'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <button class="btn-sm btn-primary" onclick="window.App.switchAdminCoach(${c.id})">
-                                                معاينة وتدقيق الملف
-                                            </button>
-                                        </td>
+                    <!-- Coaches Roster Table -->
+                    <div class="coaches-table-card">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+                            <div>
+                                <h3 style="font-size:1.15rem; color:var(--brand-blue-light);">
+                                    سجل الكوتشز المرشحين ومتابعة الإنجاز
+                                </h3>
+                                <p style="font-size:0.8rem; color:var(--text-muted);">
+                                    انقر على أي كوتش لمعاينة وتدقيق ملف إنجازه وروبركاته
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="window.App.openAddCoachModal()">
+                                ${icon('plus', {size:14, style:'margin-left:4px;'})} إضافة كوتش جديد
+                            </button>
+                        </div>
+
+                        <div style="overflow-x:auto;">
+                            <table class="coaches-table">
+                                <thead>
+                                    <tr>
+                                        <th>الكوتش المرشح</th>
+                                        <th>كود الحقيبة</th>
+                                        <th>الرتبة المهنية</th>
+                                        <th>المهام المعتمدة</th>
+                                        <th>الأدوات (90)</th>
+                                        <th>متوسط الروبرك</th>
+                                        <th>البوابة الأخلاقية</th>
+                                        <th>حالة الاعتماد</th>
+                                        <th>الإجراء الإشرافي</th>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Pending Submissions Queue -->
-                <div class="coaches-table-card">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-                        <h3 style="font-size:1.15rem; color:var(--brand-gold);">
-                            ⏳ طابور المهام المستلمة بانتظار تقييم المشرف (${totalPending} مهام)
-                        </h3>
-                    </div>
-
-                    ${totalPending === 0 ? `
-                        <div style="padding:1.5rem; text-align:center; color:var(--text-muted); background:var(--bg-input); border-radius:var(--radius-md);">
-                            ✓ رائع! لا توجد حالياً أي مهام معلقة بانتظار التدقيق. كافة التسليمات معتمدة ومقيمة بالروبرك.
+                                </thead>
+                                <tbody>
+                                    ${coaches.map(c => `
+                                        <tr style="${appState.activeCoachId === c.id ? 'background:rgba(29, 78, 216, 0.12);' : ''}">
+                                            <td>
+                                                <div style="display:flex; align-items:center; gap:0.6rem;">
+                                                    <div class="coach-avatar-initials">${c.name ? c.name.split(' ')[1]?.substring(0, 1) || 'ك' : 'ك'}</div>
+                                                    <div>
+                                                        <strong>${c.name}</strong>
+                                                        <div style="font-size:0.75rem; color:var(--text-muted);">${c.email}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td><span class="comp-item-id">${c.candidate_code || c.candidateCode}</span></td>
+                                            <td><span style="font-size:0.8rem; color:var(--text-secondary);">${c.title}</span></td>
+                                            <td>
+                                                <span class="badge-status approved">${c.tasksSummary ? c.tasksSummary.approved : 0} معتمدة</span>
+                                                ${c.tasksSummary && c.tasksSummary.pending > 0 ? `<span class="badge-status submitted" style="margin-right:4px;">${c.tasksSummary.pending} قيد المراجعة</span>` : ''}
+                                            </td>
+                                            <td><strong>${c.toolsCompleted || 0}</strong> / 90</td>
+                                            <td><strong style="color:var(--brand-gold);">${c.rubricsAverage ? c.rubricsAverage.toFixed(2) : '4.50'}</strong> / 5.0</td>
+                                            <td>
+                                                <span class="ethics-pill-pass" style="font-size:0.75rem;">
+                                                    ${c.ethicsPassed ? `${icon('check', {size:13, style:'vertical-align:-1px; margin-left:3px;'})} اجتياز 100%` : `${icon('alertTriangle', {size:13, style:'vertical-align:-1px; margin-left:3px;'})} قيد التدقيق`}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge-status ${c.audit_status === 'certified' ? 'approved' : c.audit_status === 'ready' ? 'submitted' : 'revision_required'}">
+                                                    ${c.audit_status === 'certified' ? 'مجاز ومعتمد رسمياً' : c.audit_status === 'ready' ? 'مؤهل للمناقشة' : 'قيد الاستكمال'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button class="btn-sm btn-primary" onclick="window.App.switchAdminCoach(${c.id})">
+                                                    معاينة وتدقيق الملف
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
                         </div>
-                    ` : `
-                        <div class="review-queue-grid">
-                            ${appState.data.tasks.filter(t => t.status === 'submitted').map(task => `
-                                <div class="review-queue-card">
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
-                                        <span class="badge-status submitted">قيد التدقيق</span>
-                                        <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted);">${task.id}</span>
+                    </div>
+
+                    <!-- Pending Submissions Queue -->
+                    <div class="coaches-table-card">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+                            <h3 style="font-size:1.15rem; color:var(--brand-gold);">
+                                ${icon('clock', {size:18, style:'vertical-align:-3px; margin-left:4px;'})} طابور المهام المستلمة بانتظار تقييم المشرف (${totalPending} مهام)
+                            </h3>
+                        </div>
+
+                        ${totalPending === 0 ? `
+                            <div style="padding:1.5rem; text-align:center; color:var(--text-muted); background:var(--bg-input); border-radius:var(--radius-md);">
+                                ${icon('checkCircle', {size:18, style:'color:var(--status-emerald); vertical-align:-3px; margin-left:4px;'})} رائع! لا توجد حالياً أي مهام معلقة بانتظار التدقيق. كافة التسليمات معتمدة ومقيمة بالروبرك.
+                            </div>
+                        ` : `
+                            <div class="review-queue-grid">
+                                ${appState.data.tasks.filter(t => t.status === 'submitted').map(task => `
+                                    <div class="review-queue-card">
+                                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                                            <span class="badge-status submitted">قيد التدقيق</span>
+                                            <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted);">${task.id}</span>
+                                        </div>
+                                        <h4 style="font-size:0.95rem; margin-bottom:0.4rem; color:var(--text-primary);">${task.title}</h4>
+                                        <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+                                            الأدلة المودعة: ${task.evidences.length} أدلة • النسخة: ${task.version}
+                                        </p>
+                                        <button class="btn-emerald btn-sm" style="width:100%;" onclick="window.App.openTaskModal('${task.id}')">
+                                            تقييم بالروبرك ورصد الدرجة والملاحظات
+                                        </button>
                                     </div>
-                                    <h4 style="font-size:0.95rem; margin-bottom:0.4rem; color:var(--text-primary);">${task.title}</h4>
-                                    <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.75rem;">
-                                        الأدلة المودعة: ${task.evidences.length} أدلة • النسخة: ${task.version}
+                                `).join('')}
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Final Graduation Audit Issuance -->
+                    <div class="coaches-table-card" style="border: 1px solid var(--brand-gold); background: rgba(217, 119, 6, 0.04);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+                            <div>
+                                <span class="badge-status approved" style="margin-bottom:0.5rem;">محضر التدقيق والاعتماد النهائي</span>
+                                <h3 style="font-size:1.2rem; color:var(--brand-gold); margin-bottom:0.25rem;">
+                                    إصدار شهادة التخرج والاعتماد الرسمي للماستر كوتش
+                                </h3>
+                                <p style="font-size:0.85rem; color:var(--text-secondary);">
+                                    الكوتش الحالي المحدد: <strong>${appState.data.metadata.candidate.name}</strong> (${appState.data.metadata.candidate.id})
+                                </p>
+                            </div>
+                            <div>
+                                <button class="btn-primary" onclick="window.App.issueGraduationAuditDecree(${appState.activeCoachId})">
+                                    ${icon('award', {size:16, style:'margin-left:4px;'})} اعتماد التخرج وإصدار الوثيقة الرسمية
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- TAB 2: DYNAMIC CERTIFICATE BUILDER -->
+                ${appState.adminActiveTab === 'certificate' ? `
+                    <div class="coaches-table-card">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+                            <div>
+                                <h3 style="font-size:1.25rem; color:#0B1B3D; font-weight:800; margin-bottom:0.25rem;">
+                                    محرر بنود الشهادة ومحضر التدقيق الرسمي (Dynamic Certificate Builder)
+                                </h3>
+                                <p style="font-size:0.85rem; color:var(--text-secondary);">
+                                    يمكنك كـ ماستر كوتش تعديل، إضافة، أو حذف أي بند من بنود الشهادة بحرية تامة مع الحفظ الفوري الموثق.
+                                </p>
+                            </div>
+
+                            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                                <button class="btn-primary btn-sm" onclick="window.App.openAddCertificateRowModal()">
+                                    ${icon('plus', {size:14, style:'margin-left:4px;'})} إضافة بند جديد للشهادة
+                                </button>
+                                <button class="btn-secondary btn-sm" onclick="window.App.openEditCertificateMetaModal()">
+                                    ${icon('settings', {size:14, style:'margin-left:4px;'})} تخصيص الترويسة والموقعين
+                                </button>
+                                <button class="btn-ghost btn-sm" onclick="window.App.resetCertificateRows()" style="color:#64748B;">
+                                    ↺ استعادة البنود الافتراضية
+                                </button>
+                                <button class="btn-emerald btn-sm" onclick="window.App.switchTab('report')">
+                                    ${icon('scroll', {size:14, style:'margin-left:4px;'})} معاينة وطباعة الشهادة
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Certificate Meta Card -->
+                        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:1rem 1.25rem; margin-bottom:1.5rem; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; font-size:0.85rem;">
+                            <div><strong>رقم الوثيقة:</strong> <span style="font-family:var(--font-mono); color:#2563EB;">${certConfig.documentRef || 'AUDIT-2026-MC084'}</span></div>
+                            <div><strong>تاريخ الإصدار:</strong> ${certConfig.issueDate || '2026-05-20'}</div>
+                            <div><strong>المشرف الميداني:</strong> ${certConfig.signatory1?.name || 'كوتش د. فهد السبيعي'}</div>
+                            <div><strong>رئيس اللجنة:</strong> ${certConfig.signatory2?.name || 'الماستر كوتش عبدالكريم الخليفي'}</div>
+                        </div>
+
+                        <!-- Certificate Rows Table -->
+                        <div style="overflow-x:auto;">
+                            <table class="coaches-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40px;">#</th>
+                                        <th>المعيار والمتطلب المعتمد</th>
+                                        <th>المستهدف بالحقيبة</th>
+                                        <th>المحقق في ملف الإنجاز</th>
+                                        <th>مؤشر التحقق والجودة</th>
+                                        <th>قرار اللجنة</th>
+                                        <th style="width:160px; text-align:center;">إجراء المشرف</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${certRows.map((row, idx) => `
+                                        <tr data-row-id="${row.id}">
+                                            <td style="font-family:var(--font-mono); color:var(--text-muted);">${idx + 1}</td>
+                                            <td>
+                                                <strong>${row.title}</strong>
+                                                ${row.isCustom ? `<span style="margin-right:6px; font-size:0.7rem; background:#E0F2FE; color:#0369A1; padding:2px 6px; border-radius:4px; font-weight:bold;">بند مخصص</span>` : ''}
+                                            </td>
+                                            <td>${row.target}</td>
+                                            <td><strong>${row.achieved}</strong></td>
+                                            <td><span style="font-size:0.8rem; color:var(--text-secondary);">${row.indicator}</span></td>
+                                            <td>
+                                                <span class="badge-status ${row.status === 'blocked' ? 'revision_required' : 'approved'}">
+                                                    ${row.verdict}
+                                                </span>
+                                            </td>
+                                            <td style="text-align:center; white-space:nowrap;">
+                                                <button class="btn-xs btn-outline" onclick="window.App.openEditCertificateRowModal('${row.id}')" title="تعديل هذا البند">
+                                                    ${icon('edit', {size:12, style:'margin-left:2px;'})} تعديل
+                                                </button>
+                                                <button class="btn-xs btn-danger-outline" onclick="window.App.deleteCertificateRow('${row.id}')" title="حذف هذا البند" style="margin-right:4px;">
+                                                    ${icon('trash', {size:12, style:'margin-left:2px;'})} حذف
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- TAB 3: DYNAMIC TASKS BANK -->
+                ${appState.adminActiveTab === 'tasks' ? `
+                    <div class="coaches-table-card">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+                            <div>
+                                <h3 style="font-size:1.25rem; color:#0B1B3D; font-weight:800; margin-bottom:0.25rem;">
+                                    إدارة بنك المهام الميدانية والمخرجات (${appState.data.tasks.length} مهام)
+                                </h3>
+                                <p style="font-size:0.85rem; color:var(--text-secondary);">
+                                    إضافة مهام تطبيقية جديدة، ربطها بالروبرك الرسمي، تعديل متطلبات الأدلة، أو حذف المهام.
+                                </p>
+                            </div>
+
+                            <button class="btn-primary btn-sm" onclick="window.App.openAddTaskModal()">
+                                ${icon('plus', {size:14, style:'margin-left:4px;'})} إنشاء مهمة جديدة
+                            </button>
+                        </div>
+
+                        <div style="overflow-x:auto;">
+                            <table class="coaches-table">
+                                <thead>
+                                    <tr>
+                                        <th>معرف المهمة</th>
+                                        <th>عنوان المهمة الميدانية</th>
+                                        <th>المجال / التصنيف</th>
+                                        <th>الروبرك المرتبط</th>
+                                        <th>الأدلة المودعة</th>
+                                        <th>الحالة والنسخة</th>
+                                        <th style="width:160px; text-align:center;">إجراء المشرف</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${appState.data.tasks.map(task => `
+                                        <tr>
+                                            <td><span class="comp-item-id">${task.id}</span></td>
+                                            <td>
+                                                <strong>${task.title}</strong>
+                                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                                                    ${(task.description || '').substring(0, 60)}...
+                                                </div>
+                                            </td>
+                                            <td><span style="font-size:0.8rem; color:var(--text-secondary);">${task.category || 'عام'}</span></td>
+                                            <td><span style="font-family:var(--font-mono); font-size:0.8rem; color:#2563EB;">${task.rubricCode || 'RUB-SESS'}</span></td>
+                                            <td><strong>${task.evidences ? task.evidences.length : 0}</strong> أدلة</td>
+                                            <td>
+                                                <span class="badge-status ${task.status}">
+                                                    ${task.status === 'approved' ? 'معتمدة' : task.status === 'submitted' ? 'قيد المراجعة' : task.status === 'revision_required' ? 'تحتاج تعديلاً' : 'مسودة'}
+                                                </span>
+                                                <span style="font-size:0.75rem; color:var(--text-muted); margin-right:4px;">${task.version}</span>
+                                            </td>
+                                            <td style="text-align:center; white-space:nowrap;">
+                                                <button class="btn-xs btn-outline" onclick="window.App.openEditTaskModal('${task.id}')" title="تعديل تفاصيل المهمة">
+                                                    ${icon('edit', {size:12, style:'margin-left:2px;'})} تعديل
+                                                </button>
+                                                <button class="btn-xs btn-danger-outline" onclick="window.App.deleteTask('${task.id}')" title="حذف المهمة" style="margin-right:4px;">
+                                                    ${icon('trash', {size:12, style:'margin-left:2px;'})} حذف
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- TAB 4: DYNAMIC COMPETENCIES -->
+                ${appState.adminActiveTab === 'competencies' ? `
+                    <div class="coaches-table-card">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+                            <div>
+                                <h3 style="font-size:1.25rem; color:#0B1B3D; font-weight:800; margin-bottom:0.25rem;">
+                                    مصفوفة الكفايات والمحاور (${appState.data.competencies.length} كفاية)
+                                </h3>
+                                <p style="font-size:0.85rem; color:var(--text-secondary);">
+                                    إضافة كفايات جديدة، تحديد المعايير الأخلاقية والمهنية الحرجة، وتحديث مستويات الإتقان.
+                                </p>
+                            </div>
+
+                            <button class="btn-primary btn-sm" onclick="window.App.openAddCompetencyModal()">
+                                ${icon('plus', {size:14, style:'margin-left:4px;'})} إضافة كفاية جديدة
+                            </button>
+                        </div>
+
+                        <div style="overflow-x:auto;">
+                            <table class="coaches-table">
+                                <thead>
+                                    <tr>
+                                        <th>المعرف</th>
+                                        <th>المحور التدريبي</th>
+                                        <th>عنوان الكفاية المهنية</th>
+                                        <th>المستوى</th>
+                                        <th>المعيار الحرج</th>
+                                        <th>حالة الإتقان</th>
+                                        <th style="width:140px; text-align:center;">إجراء المشرف</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${appState.data.competencies.map(comp => `
+                                        <tr>
+                                            <td><span class="comp-item-id">${comp.id}</span></td>
+                                            <td><span class="badge-status" style="background:#E0F2FE; color:#0369A1;">${comp.domainId}</span></td>
+                                            <td>
+                                                <strong>${comp.title}</strong>
+                                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                                                    ${(comp.description || '').substring(0, 50)}...
+                                                </div>
+                                            </td>
+                                            <td><span style="font-size:0.8rem; font-weight:700;">${comp.level}</span></td>
+                                            <td>
+                                                ${comp.isCritical 
+                                                    ? ('<span style="color:#DC2626; font-size:0.75rem; font-weight:bold; background:#FEF2F2; padding:2px 6px; border-radius:4px; border:1px solid #FCA5A5;">' + icon('alertTriangle', {size:12, style:'vertical-align:-1px; margin-left:3px;'}) + ' حرج قطعي</span>') 
+                                                    : '<span style="color:var(--text-muted); font-size:0.75rem;">معياري</span>'}
+                                            </td>
+                                            <td>
+                                                <span class="badge-status ${comp.status === 'mastered' ? 'approved' : 'submitted'}">
+                                                    ${comp.status === 'mastered' ? 'متقن بامتياز' : 'قيد التطوير'}
+                                                </span>
+                                            </td>
+                                            <td style="text-align:center; white-space:nowrap;">
+                                                <button class="btn-xs btn-outline" onclick="window.App.openEditCompetencyModal('${comp.id}')" title="تعديل الكفاية">
+                                                    ${icon('edit', {size:12, style:'margin-left:2px;'})} تعديل
+                                                </button>
+                                                <button class="btn-xs btn-danger-outline" onclick="window.App.deleteCompetency('${comp.id}')" title="حذف الكفاية" style="margin-right:4px;">
+                                                    ${icon('trash', {size:12, style:'margin-left:2px;'})} حذف
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- TAB 5: RUBRICS & QUOTAS -->
+                ${appState.adminActiveTab === 'rubrics_quotas' ? `
+                    <div style="display:grid; grid-template-columns: 1fr; gap:1.5rem;">
+                        <!-- Quotas Customizer -->
+                        <div class="coaches-table-card">
+                            <h3 style="font-size:1.15rem; color:#0B1B3D; font-weight:800; margin-bottom:0.5rem;">
+                                تعديل المستهدفات والحصص النظامية المعتمدة
+                            </h3>
+                            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.25rem;">
+                                قم بتعديل الساعات المطلوبة، أو عدد الحالات، الجلسات، أو تطبيقات الأدوات الـ 90 لحساب الكوتش.
+                            </p>
+
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.25rem;">
+                                <div class="admin-form-group">
+                                    <label>إجمالي الساعات (هدف 240):</label>
+                                    <input type="number" id="input-quota-hours" value="${appState.data.metadata.totalTargetHours || 240}">
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>الحالات الميدانية (هدف 20):</label>
+                                    <input type="number" id="input-quota-cases" value="${appState.data.metadata.casesTarget || 20}">
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>الجلسات الميدانية (هدف 30):</label>
+                                    <input type="number" id="input-quota-sessions" value="${appState.data.metadata.sessionsTarget || 30}">
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>تطبيقات MBTI (هدف 30):</label>
+                                    <input type="number" id="input-quota-mbti" value="${appState.data.toolsSummary?.mbti?.target || 30}">
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>تطبيقات عجلة الحياة (30):</label>
+                                    <input type="number" id="input-quota-wheel" value="${appState.data.toolsSummary?.wheelOfLife?.target || 30}">
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>تطبيقات SWOT (هدف 30):</label>
+                                    <input type="number" id="input-quota-swot" value="${appState.data.toolsSummary?.swot?.target || 30}">
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>صفحات البحث (هدف 50):</label>
+                                    <input type="number" id="input-quota-paper" value="${appState.data.researchPaper?.targetPages || 50}">
+                                </div>
+                            </div>
+
+                            <button class="btn-primary btn-sm" onclick="window.App.saveAdminQuotas()">
+                                ${icon('save', {size:14, style:'margin-left:4px;'})} حفظ تعديلات الحصص والمستهدفات
+                            </button>
+                        </div>
+
+                        <!-- Rubrics Criteria Customizer -->
+                        <div class="coaches-table-card">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+                                <div>
+                                    <h3 style="font-size:1.15rem; color:#0B1B3D; font-weight:800; margin-bottom:0.25rem;">
+                                        مصفوفة الروبركات الرسمية الستة (الأوزان والمعايير)
+                                    </h3>
+                                    <p style="font-size:0.85rem; color:var(--text-secondary);">
+                                        يمكنك إضافة معيار جديد لأي روبرك، تعديل الأوزان النسبية، أو حذف معيار.
                                     </p>
-                                    <button class="btn-emerald btn-sm" style="width:100%;" onclick="window.App.openTaskModal('${task.id}')">
-                                        تقييم بالروبرك ورصد الدرجة والملاحظات
-                                    </button>
+                                </div>
+
+                                <button class="btn-primary btn-sm" onclick="window.App.openAddRubricCriterionModal('sessions')">
+                                    ${icon('plus', {size:14, style:'margin-left:4px;'})} إضافة معيار لروبرك الجلسات
+                                </button>
+                            </div>
+
+                            ${appState.data.rubrics.map(rubric => `
+                                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:1.25rem; margin-bottom:1.5rem;">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+                                        <div style="display:flex; align-items:center; gap:0.6rem;">
+                                            <span class="comp-item-id">${rubric.code}</span>
+                                            <h4 style="font-size:1rem; color:#0B1B3D; font-weight:800;">${rubric.title}</h4>
+                                        </div>
+                                        <button class="btn-xs btn-outline" onclick="window.App.openAddRubricCriterionModal('${rubric.code}')">
+                                            ${icon('plus', {size:12, style:'margin-left:2px;'})} إضافة معيار في هذا الروبرك
+                                        </button>
+                                    </div>
+
+                                    <table class="coaches-table" style="background:#fff; border-radius:6px;">
+                                        <thead>
+                                            <tr>
+                                                <th>المعيار التقييمي</th>
+                                                <th>الوزن النسبي</th>
+                                                <th>التقييم الحالي</th>
+                                                <th>حرج أخلاقي؟</th>
+                                                <th style="width:130px; text-align:center;">إجراء</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${rubric.criteria.map(crit => `
+                                                <tr>
+                                                    <td>
+                                                        <strong>${crit.name}</strong>
+                                                        <div style="font-size:0.75rem; color:var(--text-muted);">${(crit.description || '').substring(0, 45)}...</div>
+                                                    </td>
+                                                    <td><strong style="font-family:var(--font-mono);">${(crit.weight * 100).toFixed(0)}%</strong></td>
+                                                    <td><strong style="color:var(--brand-gold);">${crit.currentLevel} / 5</strong></td>
+                                                    <td>
+                                                        ${crit.isCritical 
+                                                            ? ('<span style="color:#DC2626; font-size:0.75rem; font-weight:bold;">' + icon('alertTriangle', {size:12, style:'vertical-align:-1px; margin-left:3px;'}) + ' حرج</span>') 
+                                                            : '<span style="color:var(--text-muted); font-size:0.75rem;">معياري</span>'}
+                                                    </td>
+                                                    <td style="text-align:center; white-space:nowrap;">
+                                                        <button class="btn-xs btn-outline" onclick="window.App.openEditRubricCriterionModal('${crit.id}')" title="تعديل المعيار">${icon('edit', {size:13})}</button>
+                                                        <button class="btn-xs btn-danger-outline" onclick="window.App.deleteRubricCriterion('${crit.id}')" style="margin-right:4px;" title="حذف المعيار">${icon('trash', {size:13})}</button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
                                 </div>
                             `).join('')}
                         </div>
-                    `}
-                </div>
+                    </div>
+                ` : ''}
 
-                <!-- Final Graduation Audit Issuance -->
-                <div class="coaches-table-card" style="border: 1px solid var(--brand-gold); background: rgba(217, 119, 6, 0.04);">
-                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
-                        <div>
-                            <span class="badge-status approved" style="margin-bottom:0.5rem;">محضر التدقيق والاعتماد النهائي</span>
-                            <h3 style="font-size:1.2rem; color:var(--brand-gold); margin-bottom:0.25rem;">
-                                إصدار شهادة التخرج والاعتماد الرسمي للماستر كوتش
-                            </h3>
-                            <p style="font-size:0.85rem; color:var(--text-secondary);">
-                                الكوتش الحالي المحدد: <strong>${appState.data.metadata.candidate.name}</strong> (${appState.data.metadata.candidate.id})
-                            </p>
-                        </div>
-                        <div>
-                            <button class="btn-primary" onclick="window.App.issueGraduationAuditDecree(${appState.activeCoachId})">
-                                🎓 اعتماد التخرج وإصدار الوثيقة الرسمية
+                <!-- TAB 6: DYNAMIC COACHES ACCOUNTS -->
+                ${appState.adminActiveTab === 'coaches' ? `
+                    <div class="coaches-table-card">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+                            <div>
+                                <h3 style="font-size:1.25rem; color:#0B1B3D; font-weight:800; margin-bottom:0.25rem;">
+                                    سجل وإدارة حسابات الكوتشز المسجلين (${coaches.length} كوتش)
+                                </h3>
+                                <p style="font-size:0.85rem; color:var(--text-secondary);">
+                                    إنشاء حسابات جديدة للكوتشز المرشحين، تعديل بياناتهم الوظيفية، أو حذف الحسابات.
+                                </p>
+                            </div>
+
+                            <button class="btn-primary btn-sm" onclick="window.App.openAddCoachModal()">
+                                ${icon('plus', {size:14, style:'margin-left:4px;'})} إضافة كوتش مرشح جديد
                             </button>
                         </div>
+
+                        <div style="overflow-x:auto;">
+                            <table class="coaches-table">
+                                <thead>
+                                    <tr>
+                                        <th>الكوتش</th>
+                                        <th>البريد الإلكتروني</th>
+                                        <th>كود الحقيبة</th>
+                                        <th>الرتبة المهنية</th>
+                                        <th>تاريخ الالتحاق</th>
+                                        <th>حالة الاعتماد</th>
+                                        <th style="width:160px; text-align:center;">إجراءات المشرف</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${coaches.map(c => `
+                                        <tr>
+                                            <td>
+                                                <div style="display:flex; align-items:center; gap:0.6rem;">
+                                                    <div class="coach-avatar-initials">${c.name ? c.name.split(' ')[1]?.substring(0, 1) || 'ك' : 'ك'}</div>
+                                                    <strong>${c.name}</strong>
+                                                </div>
+                                            </td>
+                                            <td><span style="font-size:0.82rem; color:var(--text-secondary);">${c.email}</span></td>
+                                            <td><span class="comp-item-id">${c.candidate_code || c.candidateCode}</span></td>
+                                            <td><span style="font-size:0.82rem;">${c.title}</span></td>
+                                            <td><span style="font-size:0.8rem; color:var(--text-muted);">${c.enrollment_date || '2026-01-15'}</span></td>
+                                            <td>
+                                                <span class="badge-status ${c.audit_status === 'certified' ? 'approved' : c.audit_status === 'ready' ? 'submitted' : 'revision_required'}">
+                                                    ${c.audit_status === 'certified' ? 'مجاز رسمياً' : c.audit_status === 'ready' ? 'مؤهل' : 'قيد الاستكمال'}
+                                                </span>
+                                            </td>
+                                            <td style="text-align:center; white-space:nowrap;">
+                                                <button class="btn-xs btn-outline" onclick="window.App.switchAdminCoach(${c.id})" title="فتح ملف الكوتش">
+                                                    ${icon('search', {size:12, style:'margin-left:2px;'})} فتح
+                                                </button>
+                                                <button class="btn-xs btn-outline" onclick="window.App.openEditCoachModal(${c.id})" title="تعديل بيانات الكوتش" style="margin-right:2px;">
+                                                    ${icon('edit', {size:13})}
+                                                </button>
+                                                ${c.id !== 1 ? `
+                                                    <button class="btn-xs btn-danger-outline" onclick="window.App.deleteCoach(${c.id})" title="حذف حساب الكوتش" style="margin-right:2px;">
+                                                        ${icon('trash', {size:13})}
+                                                    </button>
+                                                ` : ''}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                ` : ''}
+
             </div>
         `;
+    }
+
+    function switchAdminTab(tabName) {
+        appState.adminActiveTab = tabName;
+        renderAdminDashboard();
     }
 
     async function switchAdminCoach(coachId) {
@@ -804,7 +1486,7 @@
                 const check = await window.ApiClient.getAuditDetermination(id);
                 if (check.hasBlocker) {
                     openGenericModal(
-                        '⚠️ تعذر إصدار محضر التخرج: يوجد حظر مهني أو أخلاقي',
+                        'تعذر إصدار محضر التخرج: يوجد حظر مهني أو أخلاقي',
                         `<div style="color:var(--text-primary); line-height:1.6;">
                             لا يمكن إصدار محضر التخرج للكوتش لوجود موانع نظامية قطعية:<br><br>
                             <ul style="color:var(--status-crimson-light); padding-right:1.25rem;">
@@ -835,7 +1517,14 @@
     }
 
     async function adminResetDemo() {
-        if (!confirm('هل أنت متأكد من رغبتك في إعادة تعيين كافة البيانات إلى الحالة النموذجية الافتراضية؟')) return;
+        const confirmed = await confirmDialog({
+            title: 'إعادة ضبط المنظومة التجريبية',
+            message: 'هل أنت متأكد من رغبتك في إعادة تعيين كافة البيانات إلى الحالة النموذجية الافتراضية؟ سيتم تحديث قاعدة البيانات.',
+            confirmText: 'نعم، إعادة الضبط',
+            cancelText: 'إلغاء',
+            danger: true
+        });
+        if (!confirmed) return;
         if (window.ApiClient && window.ApiClient.isServerAvailable) {
             try {
                 await window.ApiClient.resetDemoData();
@@ -876,6 +1565,1518 @@
         showToast('تم تصدير ملف البيانات بنجاح.', 'success');
     }
 
+    // =========================================================================
+    // Dynamic Admin & Certificate Modal Action Handlers (Master Coach Abdelkarim)
+    // =========================================================================
+
+    // 1. Certificate Rows & Meta Management
+    function openAddCertificateRowModal() {
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status approved" style="font-size:0.75rem;">تخصيص محضر التدقيق والشهادة</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("plusCircle", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} إضافة بند واعتماد جديد للشهادة الرسمية</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-add-cert-row" onsubmit="event.preventDefault(); window.App.submitAddCertificateRow();">
+                        <div class="admin-form-group">
+                            <label>عنوان المعيار أو المتطلب بالشهادة: *</label>
+                            <input type="text" id="cert-row-title" required placeholder="مثال: اجتياز ورشة أدوات الكوتشنج الذكية والتحليل المنظومي" />
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>المستهدف بالحقيبة: *</label>
+                                <input type="text" id="cert-row-target" required placeholder="مثال: ورشة متقدمة واحدة (15 ساعة)" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>المحقق في ملف الإنجاز: *</label>
+                                <input type="text" id="cert-row-achieved" required placeholder="مثال: منجز ومعتمد بنسبة 100%" />
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>مؤشر التحقق والجودة:</label>
+                            <input type="text" id="cert-row-indicator" placeholder="مثال: فحص وتدقيق مخرجات الأداة المعتمدة وملف التدخل" />
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>قرار اللجنة: *</label>
+                                <input type="text" id="cert-row-verdict" required value="مستوفٍ بامتياز" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>الحالة النظامية: *</label>
+                                <select id="cert-row-status">
+                                    <option value="passed">مستوفٍ / معتمد (Passed)</option>
+                                    <option value="in_progress">قيد الاستكمال (In Progress)</option>
+                                    <option value="flagged">ملاحظة إشرافية (Flagged)</option>
+                                    <option value="blocked">حظر / غير مستوفٍ (Blocked)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("plus", {size:14, style:"margin-left:4px;"})} حفظ وإضافة البند للشهادة</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitAddCertificateRow() {
+        const title = document.getElementById('cert-row-title')?.value.trim();
+        const target = document.getElementById('cert-row-target')?.value.trim();
+        const achieved = document.getElementById('cert-row-achieved')?.value.trim();
+        const indicator = document.getElementById('cert-row-indicator')?.value.trim() || 'فحص وتوثيق تدقيقي معتمد';
+        const verdict = document.getElementById('cert-row-verdict')?.value.trim() || 'مستوفٍ بامتياز';
+        const status = document.getElementById('cert-row-status')?.value || 'passed';
+
+        if (!title || !target || !achieved) {
+            showToast('يرجى ملء جميع الحقول المطلوبة للبند الجديد.', 'warn');
+            return;
+        }
+
+        const newRow = {
+            id: 'cert_row_' + Date.now(),
+            title,
+            target,
+            achieved,
+            indicator,
+            verdict,
+            status,
+            isCustom: true
+        };
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                const res = await window.ApiClient.addCertificateRow({
+                    coachId: appState.activeCoachId,
+                    ...newRow
+                });
+                if (res && res.row) {
+                    newRow.id = res.row.id;
+                }
+            } catch (err) {
+                console.warn('Backend row add error:', err);
+            }
+        }
+
+        if (!appState.data.certificateConfig) {
+            appState.data.certificateConfig = JSON.parse(JSON.stringify(window.ProgramStore.DEFAULT_DATA.certificateConfig));
+        }
+        if (!appState.data.certificateConfig.rows) {
+            appState.data.certificateConfig.rows = [];
+        }
+        appState.data.certificateConfig.rows.push(newRow);
+        window.ProgramStore.save(appState.data);
+
+        closeAllModals();
+        showToast('تمت إضافة البند الجديد للشهادة والمحضر بنجاح.', 'success');
+        renderAdminDashboard();
+        renderReportDossier();
+    }
+
+    function openEditCertificateRowModal(rowId) {
+        const certConfig = appState.data.certificateConfig || window.ProgramStore.DEFAULT_DATA.certificateConfig;
+        const row = (certConfig.rows || []).find(r => String(r.id) === String(rowId));
+        if (!row) {
+            showToast('تعذر العثور على البند المطلوب تعديله.', 'warn');
+            return;
+        }
+
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status submitted" style="font-size:0.75rem;">تعديل معايير الشهادة والمحضر</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("edit", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} تعديل بند الشهادة: ${escapeHtml(row.title)}</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-edit-cert-row" onsubmit="event.preventDefault(); window.App.submitEditCertificateRow('${row.id}');">
+                        <div class="admin-form-group">
+                            <label>عنوان المعيار أو المتطلب بالشهادة: *</label>
+                            <input type="text" id="cert-edit-title" required value="${escapeHtml(row.title)}" />
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>المستهدف بالحقيبة: *</label>
+                                <input type="text" id="cert-edit-target" required value="${escapeHtml(row.target)}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>المحقق في ملف الإنجاز: *</label>
+                                <input type="text" id="cert-edit-achieved" required value="${escapeHtml(row.achieved)}" />
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>مؤشر التحقق والجودة:</label>
+                            <input type="text" id="cert-edit-indicator" value="${escapeHtml(row.indicator || '')}" />
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>قرار اللجنة: *</label>
+                                <input type="text" id="cert-edit-verdict" required value="${escapeHtml(row.verdict || 'مستوفٍ بامتياز')}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>الحالة النظامية: *</label>
+                                <select id="cert-edit-status">
+                                    <option value="passed" ${row.status === 'passed' ? 'selected' : ''}>مستوفٍ / معتمد (Passed)</option>
+                                    <option value="in_progress" ${row.status === 'in_progress' ? 'selected' : ''}>قيد الاستكمال (In Progress)</option>
+                                    <option value="flagged" ${row.status === 'flagged' ? 'selected' : ''}>ملاحظة إشرافية (Flagged)</option>
+                                    <option value="blocked" ${row.status === 'blocked' ? 'selected' : ''}>حظر / غير مستوفٍ (Blocked)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("save", {size:14, style:"margin-left:4px;"})} حفظ تعديلات البند</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitEditCertificateRow(rowId) {
+        const title = document.getElementById('cert-edit-title')?.value.trim();
+        const target = document.getElementById('cert-edit-target')?.value.trim();
+        const achieved = document.getElementById('cert-edit-achieved')?.value.trim();
+        const indicator = document.getElementById('cert-edit-indicator')?.value.trim() || 'فحص وتوثيق تدقيقي معتمد';
+        const verdict = document.getElementById('cert-edit-verdict')?.value.trim() || 'مستوفٍ بامتياز';
+        const status = document.getElementById('cert-edit-status')?.value || 'passed';
+
+        if (!title || !target || !achieved) {
+            showToast('يرجى ملء كافة الحقول الأساسية.', 'warn');
+            return;
+        }
+
+        const certConfig = appState.data.certificateConfig || window.ProgramStore.DEFAULT_DATA.certificateConfig;
+        const row = (certConfig.rows || []).find(r => String(r.id) === String(rowId));
+        if (row) {
+            row.title = title;
+            row.target = target;
+            row.achieved = achieved;
+            row.indicator = indicator;
+            row.verdict = verdict;
+            row.status = status;
+        }
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.updateCertificateRow(rowId, {
+                    coachId: appState.activeCoachId,
+                    title, target, achieved, indicator, verdict, status
+                });
+            } catch (err) {
+                console.warn('Backend row update error:', err);
+            }
+        }
+
+        window.ProgramStore.save(appState.data);
+        closeAllModals();
+        showToast('تم تحديث بند الشهادة والمحضر بنجاح.', 'success');
+        renderAdminDashboard();
+        renderReportDossier();
+    }
+
+    async function deleteCertificateRow(rowId) {
+        const confirmed = await confirmDialog({
+            title: 'حذف بند من الشهادة الرسمية',
+            message: 'هل أنت متأكد من حذف هذا البند من الشهادة ومحضر التدقيق الرسمي؟ لا يمكن استرجاعه إلا بإعادة الضبط.',
+            confirmText: 'نعم، حذف البند',
+            cancelText: 'إلغاء',
+            danger: true
+        });
+        if (!confirmed) return;
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.deleteCertificateRow(rowId, appState.activeCoachId);
+            } catch (err) {
+                console.warn('Backend delete row error:', err);
+            }
+        }
+
+        const certConfig = appState.data.certificateConfig || window.ProgramStore.DEFAULT_DATA.certificateConfig;
+        if (certConfig.rows) {
+            certConfig.rows = certConfig.rows.filter(r => String(r.id) !== String(rowId));
+        }
+        window.ProgramStore.save(appState.data);
+
+        showToast('تم حذف البند من الشهادة والمحضر بنجاح.', 'info');
+        renderAdminDashboard();
+        renderReportDossier();
+    }
+
+    function openEditCertificateMetaModal() {
+        const certConfig = appState.data.certificateConfig || window.ProgramStore.DEFAULT_DATA.certificateConfig;
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 680px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status approved" style="font-size:0.75rem;">تخصيص الترويسة والتوقيعات الرسمية</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("settings", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} تخصيص ترويسة وموقعي الشهادة والمحضر</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-edit-cert-meta" onsubmit="event.preventDefault(); window.App.submitEditCertificateMeta();">
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>عنوان الوثيقة الرئيسي: *</label>
+                                <input type="text" id="meta-title" required value="${escapeHtml(certConfig.title || '')}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>رقم الوثيقة / الكود المرجعي: *</label>
+                                <input type="text" id="meta-doc-ref" required value="${escapeHtml(certConfig.documentRef || '')}" />
+                            </div>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>اسم المؤسسة / الهيئة: *</label>
+                                <input type="text" id="meta-org-name" required value="${escapeHtml(certConfig.orgName || '')}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>تاريخ التدقيق والإصدار: *</label>
+                                <input type="date" id="meta-issue-date" required value="${escapeHtml(certConfig.issueDate || '')}" />
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>العنوان الفرعي للبرنامج والترخيص:</label>
+                            <input type="text" id="meta-program-sub" value="${escapeHtml(certConfig.programSub || '')}" />
+                        </div>
+
+                        <div style="background:#F1F5F9; border-radius:6px; padding:1rem; margin:1rem 0;">
+                            <h4 style="font-size:0.9rem; color:#0B1B3D; margin-bottom:0.75rem;">توقيع المشرف الميداني:</h4>
+                            <div class="admin-grid-2">
+                                <div class="admin-form-group">
+                                    <label>صفة المشرف:</label>
+                                    <input type="text" id="meta-sig1-title" value="${escapeHtml(certConfig.signatory1?.title || '')}" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>اسم المشرف:</label>
+                                    <input type="text" id="meta-sig1-name" value="${escapeHtml(certConfig.signatory1?.name || '')}" />
+                                </div>
+                            </div>
+                            <div class="admin-form-group" style="margin-bottom:0;">
+                                <label>بيانات الاعتماد الرقمي:</label>
+                                <input type="text" id="meta-sig1-sub" value="${escapeHtml(certConfig.signatory1?.sub || '')}" />
+                            </div>
+                        </div>
+
+                        <div style="background:#F1F5F9; border-radius:6px; padding:1rem; margin-bottom:1rem;">
+                            <h4 style="font-size:0.9rem; color:#0B1B3D; margin-bottom:0.75rem;">توقيع رئيس اللجنة / المدير العام:</h4>
+                            <div class="admin-grid-2">
+                                <div class="admin-form-group">
+                                    <label>صفة رئيس اللجنة:</label>
+                                    <input type="text" id="meta-sig2-title" value="${escapeHtml(certConfig.signatory2?.title || '')}" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>اسم رئيس اللجنة:</label>
+                                    <input type="text" id="meta-sig2-name" value="${escapeHtml(certConfig.signatory2?.name || '')}" />
+                                </div>
+                            </div>
+                            <div class="admin-form-group" style="margin-bottom:0;">
+                                <label>بيانات الاعتماد الرقمي:</label>
+                                <input type="text" id="meta-sig2-sub" value="${escapeHtml(certConfig.signatory2?.sub || '')}" />
+                            </div>
+                        </div>
+
+                        <div class="admin-form-group">
+                            <label>نص قرار اللجنة وتوصية التخرج:</label>
+                            <textarea id="meta-verdict-text" rows="3">${escapeHtml(certConfig.committeeVerdictText || '')}</textarea>
+                        </div>
+
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("save", {size:14, style:"margin-left:4px;"})} حفظ بيانات ترويسة الشهادة</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitEditCertificateMeta() {
+        const title = document.getElementById('meta-title')?.value.trim();
+        const documentRef = document.getElementById('meta-doc-ref')?.value.trim();
+        const orgName = document.getElementById('meta-org-name')?.value.trim();
+        const issueDate = document.getElementById('meta-issue-date')?.value.trim();
+        const programSub = document.getElementById('meta-program-sub')?.value.trim();
+        const sig1Title = document.getElementById('meta-sig1-title')?.value.trim();
+        const sig1Name = document.getElementById('meta-sig1-name')?.value.trim();
+        const sig1Sub = document.getElementById('meta-sig1-sub')?.value.trim();
+        const sig2Title = document.getElementById('meta-sig2-title')?.value.trim();
+        const sig2Name = document.getElementById('meta-sig2-name')?.value.trim();
+        const sig2Sub = document.getElementById('meta-sig2-sub')?.value.trim();
+        const verdictText = document.getElementById('meta-verdict-text')?.value.trim();
+
+        const certConfig = appState.data.certificateConfig || window.ProgramStore.DEFAULT_DATA.certificateConfig;
+        certConfig.title = title || certConfig.title;
+        certConfig.documentRef = documentRef || certConfig.documentRef;
+        certConfig.orgName = orgName || certConfig.orgName;
+        certConfig.issueDate = issueDate || certConfig.issueDate;
+        certConfig.programSub = programSub || certConfig.programSub;
+        certConfig.signatory1 = { title: sig1Title, name: sig1Name, sub: sig1Sub };
+        certConfig.signatory2 = { title: sig2Title, name: sig2Name, sub: sig2Sub };
+        certConfig.committeeVerdictText = verdictText || certConfig.committeeVerdictText;
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.updateCertificateConfig({
+                    coachId: appState.activeCoachId,
+                    title: certConfig.title,
+                    documentRef: certConfig.documentRef,
+                    orgName: certConfig.orgName,
+                    issueDate: certConfig.issueDate,
+                    programSub: certConfig.programSub,
+                    signatory1: certConfig.signatory1,
+                    signatory2: certConfig.signatory2,
+                    committeeVerdictText: certConfig.committeeVerdictText
+                });
+            } catch (err) {
+                console.warn('Backend update cert config error:', err);
+            }
+        }
+
+        window.ProgramStore.save(appState.data);
+        closeAllModals();
+        showToast('تم تحديث بيانات الترويسة وموقعي الشهادة بنجاح.', 'success');
+        renderAdminDashboard();
+        renderReportDossier();
+    }
+
+    async function resetCertificateRows() {
+        const confirmed = await confirmDialog({
+            title: 'استعادة بنود الشهادة النموذجية',
+            message: 'هل أنت متأكد من استعادة البنود النموذجية الـ 12 للشهادة وفق حقيبة الماستر كوتش 3.0؟ سيتم استبدال أي صفوف مخصصة أضفتها.',
+            confirmText: 'نعم، استعادة البنود',
+            cancelText: 'إلغاء',
+            danger: true
+        });
+        if (!confirmed) return;
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.resetCertificateRows(appState.activeCoachId);
+            } catch (err) {
+                console.warn('Backend reset certificate rows error:', err);
+            }
+        }
+
+        const defaultRows = JSON.parse(JSON.stringify(window.ProgramStore.DEFAULT_DATA.certificateConfig?.rows || []));
+        if (!appState.data.certificateConfig) {
+            appState.data.certificateConfig = JSON.parse(JSON.stringify(window.ProgramStore.DEFAULT_DATA.certificateConfig));
+        }
+        appState.data.certificateConfig.rows = defaultRows;
+        window.ProgramStore.save(appState.data);
+
+        showToast('تمت استعادة البنود النموذجية للشهادة والمحضر بنجاح.', 'success');
+        renderAdminDashboard();
+        renderReportDossier();
+    }
+
+    // 2. Tasks Bank Management
+    function openAddTaskModal() {
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        const nextNum = appState.data.tasks.length + 1;
+        const autoId = 'TASK-' + (nextNum < 10 ? '0' + nextNum : nextNum);
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status approved" style="font-size:0.75rem;">إدارة بنك المهام</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("plusCircle", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} إضافة مهمة ميدانية جديدة للحقيبة</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-add-task" onsubmit="event.preventDefault(); window.App.submitAddTask();">
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>معرف المهمة: *</label>
+                                <input type="text" id="task-new-id" required value="${autoId}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>التصنيف / المجال: *</label>
+                                <select id="task-new-category">
+                                    <option value="جلسات كوتشنج ميدانية">جلسات كوتشنج ميدانية</option>
+                                    <option value="أدوات واستكشاف">أدوات واستكشاف</option>
+                                    <option value="بحث علمي تطبيقي">بحث علمي تطبيقي</option>
+                                    <option value="مشروع ابتكاري">مشروع ابتكاري</option>
+                                    <option value="إشراف مهني">إشراف مهني</option>
+                                    <option value="عام">عام</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>عنوان المهمة الميدانية: *</label>
+                            <input type="text" id="task-new-title" required placeholder="مثال: تنفيذ جلسة كوتشنج قيادي متقدمة مع تسجيل صوتي" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label>وصف المهمة ومخرجات التسليم المطلوبة: *</label>
+                            <textarea id="task-new-desc" rows="3" required placeholder="بيان متطلبات الإنجاز، الأدلة الواجب رفعها، وشروط الاعتماد..."></textarea>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>الروبرك المعتمد للتقييم: *</label>
+                                <select id="task-new-rubric">
+                                    <option value="RUB-SESS">روبرك الجلسات المهنية (RUB-SESS)</option>
+                                    <option value="RUB-PORT">روبرك ملف الإنجاز الشامل (RUB-PORT)</option>
+                                    <option value="RUB-RESR">روبرك الورقة العلمية (RUB-RESR)</option>
+                                    <option value="RUB-INNO">روبرك المشروع الابتكاري (RUB-INNO)</option>
+                                    <option value="RUB-INTV">روبرك المقابلة الختامية (RUB-INTV)</option>
+                                    <option value="RUB-SUPV">روبرك الإشراف المهني (RUB-SUPV)</option>
+                                </select>
+                            </div>
+                            <div class="admin-form-group">
+                                <label>الحالة الأولية:</label>
+                                <select id="task-new-status">
+                                    <option value="draft">مسودة (Draft)</option>
+                                    <option value="submitted">مقدمة للمراجعة (Submitted)</option>
+                                    <option value="approved">معتمدة (Approved)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("plus", {size:14, style:"margin-left:4px;"})} إنشاء وحفظ المهمة</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitAddTask() {
+        const id = document.getElementById('task-new-id')?.value.trim();
+        const category = document.getElementById('task-new-category')?.value;
+        const title = document.getElementById('task-new-title')?.value.trim();
+        const description = document.getElementById('task-new-desc')?.value.trim();
+        const rubricCode = document.getElementById('task-new-rubric')?.value;
+        const status = document.getElementById('task-new-status')?.value || 'draft';
+
+        if (!id || !title || !description) {
+            showToast('يرجى استيفاء جميع الحقول المطلوبة.', 'warn');
+            return;
+        }
+
+        const newTask = {
+            id,
+            title,
+            category,
+            description,
+            rubricCode,
+            status,
+            version: 'v1.0',
+            linkedCompetencies: ['C-01', 'C-02'],
+            evidences: [],
+            reflection: { q1: '', q2: '', q3: '', q4: '' },
+            evaluation: null
+        };
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.createAdminTask({
+                    coachId: appState.activeCoachId,
+                    ...newTask
+                });
+            } catch (err) {
+                console.warn('Backend create task error:', err);
+            }
+        }
+
+        appState.data.tasks.push(newTask);
+        window.ProgramStore.save(appState.data);
+
+        closeAllModals();
+        showToast('تمت إضافة المهمة الجديدة لبنك المهام بنجاح.', 'success');
+        renderAdminDashboard();
+        renderTasksPanel();
+    }
+
+    function openEditTaskModal(taskId) {
+        const task = appState.data.tasks.find(t => t.id === taskId);
+        if (!task) {
+            showToast('المهمة غير موجودة.', 'warn');
+            return;
+        }
+
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status submitted" style="font-size:0.75rem;">تعديل بيانات المهمة</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("edit", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} تعديل المهمة: ${escapeHtml(task.id)}</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-edit-task" onsubmit="event.preventDefault(); window.App.submitEditTask('${task.id}');">
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>معرف المهمة (ثابت):</label>
+                                <input type="text" value="${escapeHtml(task.id)}" disabled style="background:#F1F5F9;" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>التصنيف / المجال: *</label>
+                                <input type="text" id="task-edit-category" value="${escapeHtml(task.category || 'عام')}" required />
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>عنوان المهمة الميدانية: *</label>
+                            <input type="text" id="task-edit-title" required value="${escapeHtml(task.title)}" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label>وصف المهمة ومخرجات التسليم المطلوبة: *</label>
+                            <textarea id="task-edit-desc" rows="3" required>${escapeHtml(task.description || '')}</textarea>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>الروبرك المعتمد للتقييم: *</label>
+                                <select id="task-edit-rubric">
+                                    <option value="RUB-SESS" ${task.rubricCode === 'RUB-SESS' ? 'selected' : ''}>روبرك الجلسات المهنية (RUB-SESS)</option>
+                                    <option value="RUB-PORT" ${task.rubricCode === 'RUB-PORT' ? 'selected' : ''}>روبرك ملف الإنجاز الشامل (RUB-PORT)</option>
+                                    <option value="RUB-RESR" ${task.rubricCode === 'RUB-RESR' ? 'selected' : ''}>روبرك الورقة العلمية (RUB-RESR)</option>
+                                    <option value="RUB-INNO" ${task.rubricCode === 'RUB-INNO' ? 'selected' : ''}>روبرك المشروع الابتكاري (RUB-INNO)</option>
+                                    <option value="RUB-INTV" ${task.rubricCode === 'RUB-INTV' ? 'selected' : ''}>روبرك المقابلة الختامية (RUB-INTV)</option>
+                                    <option value="RUB-SUPV" ${task.rubricCode === 'RUB-SUPV' ? 'selected' : ''}>روبرك الإشراف المهني (RUB-SUPV)</option>
+                                </select>
+                            </div>
+                            <div class="admin-form-group">
+                                <label>الحالة الحالية:</label>
+                                <select id="task-edit-status">
+                                    <option value="draft" ${task.status === 'draft' ? 'selected' : ''}>مسودة (Draft)</option>
+                                    <option value="submitted" ${task.status === 'submitted' ? 'selected' : ''}>مقدمة للمراجعة (Submitted)</option>
+                                    <option value="revision_required" ${task.status === 'revision_required' ? 'selected' : ''}>تحتاج تعديلاً (Revision Required)</option>
+                                    <option value="approved" ${task.status === 'approved' ? 'selected' : ''}>معتمدة (Approved)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("save", {size:14, style:"margin-left:4px;"})} حفظ تعديلات المهمة</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitEditTask(taskId) {
+        const title = document.getElementById('task-edit-title')?.value.trim();
+        const category = document.getElementById('task-edit-category')?.value.trim();
+        const description = document.getElementById('task-edit-desc')?.value.trim();
+        const rubricCode = document.getElementById('task-edit-rubric')?.value;
+        const status = document.getElementById('task-edit-status')?.value;
+
+        if (!title || !description) {
+            showToast('يرجى ملء الحقول المطلوبة.', 'warn');
+            return;
+        }
+
+        const task = appState.data.tasks.find(t => t.id === taskId);
+        if (task) {
+            task.title = title;
+            task.category = category;
+            task.description = description;
+            task.rubricCode = rubricCode;
+            task.status = status;
+        }
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.updateAdminTask(taskId, {
+                    coachId: appState.activeCoachId,
+                    title, category, description, rubricCode, status
+                });
+            } catch (err) {
+                console.warn('Backend update task error:', err);
+            }
+        }
+
+        window.ProgramStore.save(appState.data);
+        closeAllModals();
+        showToast('تم تحديث تفاصيل المهمة بنجاح.', 'success');
+        renderAdminDashboard();
+        renderTasksPanel();
+    }
+
+    async function deleteTask(taskId) {
+        const confirmed = await confirmDialog({
+            title: 'حذف مهمة من بنك المهام',
+            message: `هل أنت متأكد من حذف المهمة (${taskId}) من بنك المهام؟ سيتم حذف كافة الأدلة والتأملات المرتبطة بها.`,
+            confirmText: 'نعم، حذف المهمة',
+            cancelText: 'إلغاء',
+            danger: true
+        });
+        if (!confirmed) return;
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.deleteAdminTask(taskId, appState.activeCoachId);
+            } catch (err) {
+                console.warn('Backend delete task error:', err);
+            }
+        }
+
+        appState.data.tasks = appState.data.tasks.filter(t => t.id !== taskId);
+        window.ProgramStore.save(appState.data);
+
+        showToast(`تم حذف المهمة (${taskId}) بنجاح.`, 'info');
+        renderAdminDashboard();
+        renderTasksPanel();
+    }
+
+    // 3. Competencies Management
+    function openAddCompetencyModal() {
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        const nextNum = appState.data.competencies.length + 1;
+        const autoCode = 'C-' + (nextNum < 10 ? '0' + nextNum : nextNum);
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status approved" style="font-size:0.75rem;">إدارة الكفايات والمحاور</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("target", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} إضافة كفاية مهنية جديدة</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-add-comp" onsubmit="event.preventDefault(); window.App.submitAddCompetency();">
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>كود الكفاية: *</label>
+                                <input type="text" id="comp-new-code" required value="${autoCode}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>المحور التدريبي: *</label>
+                                <select id="comp-new-domain">
+                                    <option value="D1">D1: الكفايات المهنية الأساسية</option>
+                                    <option value="D2">D2: الكفايات التحليلية</option>
+                                    <option value="D3">D3: الكفايات التطبيقية</option>
+                                    <option value="D4">D4: التفكير والقيادة المهنية</option>
+                                    <option value="D5">D5: الكفايات البحثية</option>
+                                    <option value="D6">D6: كفايات الابتكار</option>
+                                    <option value="D7">D7: الكفايات الرقمية والذكاء الاصطناعي</option>
+                                    <option value="D8">D8: الكفايات الأخلاقية وحدود الاختصاص</option>
+                                    <option value="D9">D9: كفاية الإشراف على الممارسين</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>عنوان الكفاية المهنية: *</label>
+                            <input type="text" id="comp-new-title" required placeholder="مثال: التقييم التكاملي لنماذج التحليل المؤسسي المتقدم" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label>وصف الكفاية ومؤشرات الإتقان السلوكية: *</label>
+                            <textarea id="comp-new-desc" rows="3" required placeholder="بيان السلوك المهني المطلوب ومؤشرات التحقق..."></textarea>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>مستوى الأداء المستهدف:</label>
+                                <input type="text" id="comp-new-level" value="ماستر كوتش متمكن" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>حالة الإتقان الحالية:</label>
+                                <select id="comp-new-status">
+                                    <option value="mastered">متقن بامتياز (Mastered)</option>
+                                    <option value="in_progress">قيد التطوير (In Progress)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-form-group" style="display:flex; align-items:center; gap:0.6rem; background:#FEF2F2; padding:0.75rem; border-radius:6px; border:1px solid #FCA5A5;">
+                            <input type="checkbox" id="comp-new-critical" style="width:auto;" />
+                            <label for="comp-new-critical" style="margin-bottom:0; color:#991B1B; font-weight:700;">
+                                ${icon("alertTriangle", {size:14, style:"color:#DC2626; vertical-align:-2px; margin-left:4px;"})} تعيين كمعيار حرج قطعي (يمنع الاعتماد في حال عدم الاستيفاء)
+                            </label>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("plus", {size:14, style:"margin-left:4px;"})} إضافة الكفاية للمصفوفة</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitAddCompetency() {
+        const code = document.getElementById('comp-new-code')?.value.trim();
+        const domainId = document.getElementById('comp-new-domain')?.value;
+        const title = document.getElementById('comp-new-title')?.value.trim();
+        const description = document.getElementById('comp-new-desc')?.value.trim();
+        const level = document.getElementById('comp-new-level')?.value.trim() || 'ماستر كوتش';
+        const status = document.getElementById('comp-new-status')?.value || 'mastered';
+        const isCritical = document.getElementById('comp-new-critical')?.checked || false;
+
+        if (!code || !title || !description) {
+            showToast('يرجى ملء كافة الحقول الأساسية.', 'warn');
+            return;
+        }
+
+        const newComp = {
+            id: code,
+            code,
+            domainId,
+            title,
+            description,
+            level,
+            status,
+            isCritical
+        };
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.createAdminCompetency({
+                    coachId: appState.activeCoachId,
+                    ...newComp
+                });
+            } catch (err) {
+                console.warn('Backend create competency error:', err);
+            }
+        }
+
+        appState.data.competencies.push(newComp);
+        window.ProgramStore.save(appState.data);
+
+        closeAllModals();
+        showToast('تمت إضافة الكفاية الجديدة للمصفوفة بنجاح.', 'success');
+        renderAdminDashboard();
+        renderCompetencyMatrixPanel();
+        renderHeaderAndStrip();
+    }
+
+    function openEditCompetencyModal(compId) {
+        const comp = appState.data.competencies.find(c => c.id === compId);
+        if (!comp) {
+            showToast('الكفاية غير موجودة.', 'warn');
+            return;
+        }
+
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status submitted" style="font-size:0.75rem;">تعديل بيانات الكفاية</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("edit", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} تعديل الكفاية: ${escapeHtml(comp.id)}</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-edit-comp" onsubmit="event.preventDefault(); window.App.submitEditCompetency('${comp.id}');">
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>المعرف (ثابت):</label>
+                                <input type="text" value="${escapeHtml(comp.id)}" disabled style="background:#F1F5F9;" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>المحور التدريبي: *</label>
+                                <select id="comp-edit-domain">
+                                    <option value="D1" ${comp.domainId === 'D1' ? 'selected' : ''}>D1: الكفايات المهنية الأساسية</option>
+                                    <option value="D2" ${comp.domainId === 'D2' ? 'selected' : ''}>D2: الكفايات التحليلية</option>
+                                    <option value="D3" ${comp.domainId === 'D3' ? 'selected' : ''}>D3: الكفايات التطبيقية</option>
+                                    <option value="D4" ${comp.domainId === 'D4' ? 'selected' : ''}>D4: التفكير والقيادة المهنية</option>
+                                    <option value="D5" ${comp.domainId === 'D5' ? 'selected' : ''}>D5: الكفايات البحثية</option>
+                                    <option value="D6" ${comp.domainId === 'D6' ? 'selected' : ''}>D6: كفايات الابتكار</option>
+                                    <option value="D7" ${comp.domainId === 'D7' ? 'selected' : ''}>D7: الكفايات الرقمية والذكاء الاصطناعي</option>
+                                    <option value="D8" ${comp.domainId === 'D8' ? 'selected' : ''}>D8: الكفايات الأخلاقية وحدود الاختصاص</option>
+                                    <option value="D9" ${comp.domainId === 'D9' ? 'selected' : ''}>D9: كفاية الإشراف على الممارسين</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>عنوان الكفاية المهنية: *</label>
+                            <input type="text" id="comp-edit-title" required value="${escapeHtml(comp.title)}" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label>وصف الكفاية ومؤشرات الإتقان السلوكية: *</label>
+                            <textarea id="comp-edit-desc" rows="3" required>${escapeHtml(comp.description || '')}</textarea>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>مستوى الأداء المستهدف:</label>
+                                <input type="text" id="comp-edit-level" value="${escapeHtml(comp.level || 'ماستر كوتش')}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>حالة الإتقان الحالية:</label>
+                                <select id="comp-edit-status">
+                                    <option value="mastered" ${comp.status === 'mastered' ? 'selected' : ''}>متقن بامتياز (Mastered)</option>
+                                    <option value="in_progress" ${comp.status === 'in_progress' ? 'selected' : ''}>قيد التطوير (In Progress)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-form-group" style="display:flex; align-items:center; gap:0.6rem; background:#FEF2F2; padding:0.75rem; border-radius:6px; border:1px solid #FCA5A5;">
+                            <input type="checkbox" id="comp-edit-critical" ${comp.isCritical ? 'checked' : ''} style="width:auto;" />
+                            <label for="comp-edit-critical" style="margin-bottom:0; color:#991B1B; font-weight:700;">
+                                ${icon("alertTriangle", {size:14, style:"color:#DC2626; vertical-align:-2px; margin-left:4px;"})} تعيين كمعيار حرج قطعي (يمنع الاعتماد في حال عدم الاستيفاء)
+                            </label>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("save", {size:14, style:"margin-left:4px;"})} حفظ تعديلات الكفاية</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitEditCompetency(compId) {
+        const title = document.getElementById('comp-edit-title')?.value.trim();
+        const domainId = document.getElementById('comp-edit-domain')?.value;
+        const description = document.getElementById('comp-edit-desc')?.value.trim();
+        const level = document.getElementById('comp-edit-level')?.value.trim();
+        const status = document.getElementById('comp-edit-status')?.value;
+        const isCritical = document.getElementById('comp-edit-critical')?.checked || false;
+
+        if (!title || !description) {
+            showToast('يرجى ملء الحقول المطلوبة.', 'warn');
+            return;
+        }
+
+        const comp = appState.data.competencies.find(c => c.id === compId);
+        if (comp) {
+            comp.title = title;
+            comp.domainId = domainId;
+            comp.description = description;
+            comp.level = level;
+            comp.status = status;
+            comp.isCritical = isCritical;
+        }
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.updateAdminCompetency(compId, {
+                    coachId: appState.activeCoachId,
+                    title, domainId, description, level, status, isCritical
+                });
+            } catch (err) {
+                console.warn('Backend update competency error:', err);
+            }
+        }
+
+        window.ProgramStore.save(appState.data);
+        closeAllModals();
+        showToast('تم تحديث الكفاية بنجاح.', 'success');
+        renderAdminDashboard();
+        renderCompetencyMatrixPanel();
+        renderHeaderAndStrip();
+    }
+
+    async function deleteCompetency(compId) {
+        const confirmed = await confirmDialog({
+            title: 'حذف كفاية مهنية',
+            message: `هل أنت متأكد من حذف الكفاية (${compId}) نهائياً؟ سيتم استبعادها من محاور التقييم الـ 8 ومن نسب الإتقان.`,
+            confirmText: 'نعم، حذف الكفاية',
+            cancelText: 'إلغاء',
+            danger: true
+        });
+        if (!confirmed) return;
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.deleteAdminCompetency(compId, appState.activeCoachId);
+            } catch (err) {
+                console.warn('Backend delete competency error:', err);
+            }
+        }
+
+        appState.data.competencies = appState.data.competencies.filter(c => c.id !== compId);
+        window.ProgramStore.save(appState.data);
+
+        showToast(`تم حذف الكفاية (${compId}) بنجاح.`, 'info');
+        renderAdminDashboard();
+        renderCompetencyMatrixPanel();
+        renderHeaderAndStrip();
+    }
+
+    // 4. Rubrics Criteria Management
+    function openAddRubricCriterionModal(rubricCode) {
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        const targetCode = rubricCode || 'sessions';
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status approved" style="font-size:0.75rem;">تخصيص الروبركات الرسمية</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("plusCircle", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} إضافة معيار تقييمي جديد</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-add-crit" onsubmit="event.preventDefault(); window.App.submitAddRubricCriterion();">
+                        <div class="admin-form-group">
+                            <label>الروبرك المستهدف: *</label>
+                            <select id="crit-new-rubric">
+                                <option value="sessions" ${targetCode === 'sessions' || targetCode === 'RUB-SESS' ? 'selected' : ''}>روبرك الجلسات المهنية (RUB-SESS)</option>
+                                <option value="portfolio" ${targetCode === 'portfolio' || targetCode === 'RUB-PORT' ? 'selected' : ''}>روبرك ملف الإنجاز الشامل (RUB-PORT)</option>
+                                <option value="research_paper" ${targetCode === 'research_paper' || targetCode === 'RUB-RESR' ? 'selected' : ''}>روبرك الورقة العلمية (RUB-RESR)</option>
+                                <option value="innovation_project" ${targetCode === 'innovation_project' || targetCode === 'RUB-INNO' ? 'selected' : ''}>روبرك المشروع الابتكاري (RUB-INNO)</option>
+                                <option value="final_interview" ${targetCode === 'final_interview' || targetCode === 'RUB-INTV' ? 'selected' : ''}>روبرك المقابلة الختامية (RUB-INTV)</option>
+                                <option value="supervision_rubric" ${targetCode === 'supervision_rubric' || targetCode === 'RUB-SUPV' ? 'selected' : ''}>روبرك الإشراف المهني (RUB-SUPV)</option>
+                            </select>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>اسم المعيار التقييمي: *</label>
+                            <input type="text" id="crit-new-name" required placeholder="مثال: الاستخدام المسؤول للذكاء الاصطناعي في توثيق الجلسات" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label>وصف المعيار ومؤشرات الأداء: *</label>
+                            <textarea id="crit-new-desc" rows="3" required placeholder="بيان متطلبات الإتقان في مستويات الروبرك الخمسة..."></textarea>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>الوزن النسبي (من 0.05 إلى 0.50): *</label>
+                                <input type="number" id="crit-new-weight" step="0.05" min="0.01" max="1.0" required value="0.20" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>التقييم الأولي (من 1 إلى 5): *</label>
+                                <input type="number" id="crit-new-level" min="1" max="5" required value="5" />
+                            </div>
+                        </div>
+                        <div class="admin-form-group" style="display:flex; align-items:center; gap:0.6rem; background:#FEF2F2; padding:0.75rem; border-radius:6px; border:1px solid #FCA5A5;">
+                            <input type="checkbox" id="crit-new-critical" style="width:auto;" />
+                            <label for="crit-new-critical" style="margin-bottom:0; color:#991B1B; font-weight:700;">
+                                ${icon("alertTriangle", {size:14, style:"color:#DC2626; vertical-align:-2px; margin-left:4px;"})} تعيين كمعيار أخلاقي / مهني حرج (تفعّل الحظر إذا قلّ عن 3/5)
+                            </label>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("plus", {size:14, style:"margin-left:4px;"})} إضافة المعيار للروبرك</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitAddRubricCriterion() {
+        const rubricCode = document.getElementById('crit-new-rubric')?.value;
+        const name = document.getElementById('crit-new-name')?.value.trim();
+        const description = document.getElementById('crit-new-desc')?.value.trim();
+        const weight = parseFloat(document.getElementById('crit-new-weight')?.value) || 0.20;
+        const currentLevel = parseInt(document.getElementById('crit-new-level')?.value) || 5;
+        const isCritical = document.getElementById('crit-new-critical')?.checked || false;
+
+        if (!name || !description) {
+            showToast('يرجى كتابة اسم المعيار ووصفه.', 'warn');
+            return;
+        }
+
+        const newCrit = {
+            id: 'crit_' + Date.now(),
+            name,
+            description,
+            weight,
+            currentLevel,
+            isCritical,
+            evidence: 'توثيق الأدلة المعتمدة في ملف الإنجاز',
+            supervisorFeedback: 'أداء مستوفٍ ومطابق لمعايير الحقيبة.',
+            requiredImprovement: 'الالتزام المستمر بمعايير التميز في هذا المعيار.',
+            levelsDesc: {
+                1: 'ضعيف: لم يستوفِ المتطلب.',
+                2: 'مقبول: استيفاء جزئي يحتاج تحسين.',
+                3: 'جيد: استيفاء مرضٍ وفق المعيار.',
+                4: 'جيد جداً: أداء متقدم ومتقن.',
+                5: 'ممتاز: إتقان نموذجي مع مرتبة الشرف.'
+            }
+        };
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                const res = await window.ApiClient.createAdminRubricCriterion({
+                    coachId: appState.activeCoachId,
+                    rubricCode,
+                    ...newCrit
+                });
+                if (res && res.criterion) {
+                    newCrit.id = res.criterion.id;
+                }
+            } catch (err) {
+                console.warn('Backend create rubric criterion error:', err);
+            }
+        }
+
+        const rObj = appState.data.rubrics.find(r => r.id === rubricCode || r.code === rubricCode);
+        if (rObj) {
+            rObj.criteria.push(newCrit);
+        }
+        window.ProgramStore.save(appState.data);
+
+        closeAllModals();
+        showToast('تمت إضافة المعيار التقييمي الجديد للروبرك بنجاح.', 'success');
+        renderAdminDashboard();
+        renderRubricsPanel();
+        renderReportDossier();
+    }
+
+    function openEditRubricCriterionModal(critId) {
+        let foundCrit = null;
+        let foundRubric = null;
+
+        for (const r of appState.data.rubrics) {
+            const c = (r.criteria || []).find(x => String(x.id) === String(critId));
+            if (c) {
+                foundCrit = c;
+                foundRubric = r;
+                break;
+            }
+        }
+
+        if (!foundCrit) {
+            showToast('المعيار التقييمي غير موجود.', 'warn');
+            return;
+        }
+
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status submitted" style="font-size:0.75rem;">تعديل معايير الروبرك</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("edit", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} تعديل المعيار: ${escapeHtml(foundCrit.name)}</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-edit-crit" onsubmit="event.preventDefault(); window.App.submitEditRubricCriterion('${foundCrit.id}');">
+                        <div class="admin-form-group">
+                            <label>اسم المعيار التقييمي: *</label>
+                            <input type="text" id="crit-edit-name" required value="${escapeHtml(foundCrit.name)}" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label>وصف المعيار ومؤشرات الأداء: *</label>
+                            <textarea id="crit-edit-desc" rows="3" required>${escapeHtml(foundCrit.description || '')}</textarea>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>الوزن النسبي: *</label>
+                                <input type="number" id="crit-edit-weight" step="0.05" min="0.01" max="1.0" required value="${foundCrit.weight}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>التقييم الحالي (من 1 إلى 5): *</label>
+                                <input type="number" id="crit-edit-level" min="1" max="5" required value="${foundCrit.currentLevel}" />
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label>التحسين المطلوب الموثق:</label>
+                            <input type="text" id="crit-edit-imp" value="${escapeHtml(foundCrit.requiredImprovement || '')}" />
+                        </div>
+                        <div class="admin-form-group" style="display:flex; align-items:center; gap:0.6rem; background:#FEF2F2; padding:0.75rem; border-radius:6px; border:1px solid #FCA5A5;">
+                            <input type="checkbox" id="crit-edit-critical" ${foundCrit.isCritical ? 'checked' : ''} style="width:auto;" />
+                            <label for="crit-edit-critical" style="margin-bottom:0; color:#991B1B; font-weight:700;">
+                                ${icon("alertTriangle", {size:14, style:"color:#DC2626; vertical-align:-2px; margin-left:4px;"})} تعيين كمعيار أخلاقي / مهني حرج (تفعّل الحظر إذا قلّ عن 3/5)
+                            </label>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("save", {size:14, style:"margin-left:4px;"})} حفظ تعديلات المعيار</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitEditRubricCriterion(critId) {
+        const name = document.getElementById('crit-edit-name')?.value.trim();
+        const description = document.getElementById('crit-edit-desc')?.value.trim();
+        const weight = parseFloat(document.getElementById('crit-edit-weight')?.value) || 0.20;
+        const currentLevel = parseInt(document.getElementById('crit-edit-level')?.value) || 5;
+        const requiredImprovement = document.getElementById('crit-edit-imp')?.value.trim();
+        const isCritical = document.getElementById('crit-edit-critical')?.checked || false;
+
+        if (!name || !description) {
+            showToast('يرجى ملء الحقول المطلوبة.', 'warn');
+            return;
+        }
+
+        for (const r of appState.data.rubrics) {
+            const c = (r.criteria || []).find(x => String(x.id) === String(critId));
+            if (c) {
+                c.name = name;
+                c.description = description;
+                c.weight = weight;
+                c.currentLevel = currentLevel;
+                c.requiredImprovement = requiredImprovement;
+                c.isCritical = isCritical;
+                break;
+            }
+        }
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.updateAdminRubricCriterion(critId, {
+                    coachId: appState.activeCoachId,
+                    name, description, weight, currentLevel, requiredImprovement, isCritical
+                });
+            } catch (err) {
+                console.warn('Backend update criterion error:', err);
+            }
+        }
+
+        window.ProgramStore.save(appState.data);
+        closeAllModals();
+        showToast('تم حفظ تعديلات المعيار التقييمي بنجاح.', 'success');
+        renderAdminDashboard();
+        renderRubricsPanel();
+        renderReportDossier();
+    }
+
+    async function deleteRubricCriterion(critId) {
+        const confirmed = await confirmDialog({
+            title: 'حذف معيار من الروبرك المعتمد',
+            message: 'هل أنت متأكد من حذف هذا المعيار من الروبرك؟ سيتم إعادة احتساب الأوزان النسبية ومتوسط التقييم العام.',
+            confirmText: 'نعم، حذف المعيار',
+            cancelText: 'إلغاء',
+            danger: true
+        });
+        if (!confirmed) return;
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.deleteAdminRubricCriterion(critId, appState.activeCoachId);
+            } catch (err) {
+                console.warn('Backend delete criterion error:', err);
+            }
+        }
+
+        for (const r of appState.data.rubrics) {
+            r.criteria = (r.criteria || []).filter(c => String(c.id) !== String(critId));
+        }
+        window.ProgramStore.save(appState.data);
+
+        showToast('تم حذف المعيار من الروبرك بنجاح.', 'info');
+        renderAdminDashboard();
+        renderRubricsPanel();
+        renderReportDossier();
+    }
+
+    // 5. Quotas & Targets Management
+    async function saveAdminQuotas() {
+        const hours = parseInt(document.getElementById('input-quota-hours')?.value) || 240;
+        const cases = parseInt(document.getElementById('input-quota-cases')?.value) || 20;
+        const sessions = parseInt(document.getElementById('input-quota-sessions')?.value) || 30;
+        const mbti = parseInt(document.getElementById('input-quota-mbti')?.value) || 30;
+        const wheel = parseInt(document.getElementById('input-quota-wheel')?.value) || 30;
+        const swot = parseInt(document.getElementById('input-quota-swot')?.value) || 30;
+        const paper = parseInt(document.getElementById('input-quota-paper')?.value) || 50;
+
+        appState.data.metadata.totalTargetHours = hours;
+        appState.data.metadata.casesTarget = cases;
+        appState.data.metadata.sessionsTarget = sessions;
+
+        if (appState.data.toolsSummary) {
+            if (appState.data.toolsSummary.mbti) appState.data.toolsSummary.mbti.target = mbti;
+            if (appState.data.toolsSummary.wheelOfLife) appState.data.toolsSummary.wheelOfLife.target = wheel;
+            if (appState.data.toolsSummary.swot) appState.data.toolsSummary.swot.target = swot;
+        }
+
+        if (appState.data.researchPaper) {
+            appState.data.researchPaper.targetPages = paper;
+        }
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.updateAdminQuotas({
+                    coachId: appState.activeCoachId,
+                    totalTargetHours: hours,
+                    casesTarget: cases,
+                    sessionsTarget: sessions,
+                    mbtiTarget: mbti,
+                    wheelTarget: wheel,
+                    swotTarget: swot,
+                    paperTarget: paper
+                });
+            } catch (err) {
+                console.warn('Backend update quotas error:', err);
+            }
+        }
+
+        window.ProgramStore.save(appState.data);
+        showToast('تم حفظ وتحديث الحصص والمستهدفات النظامية بنجاح.', 'success');
+        renderAdminDashboard();
+        renderDualDashboard();
+        renderHeaderAndStrip();
+    }
+
+    // 6. Coaches Accounts Management
+    function openAddCoachModal() {
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        const nextNum = (appState.allCoachesList ? appState.allCoachesList.length : 2) + 1;
+        const autoCode = 'MC-2026-08' + nextNum;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status approved" style="font-size:0.75rem;">إدارة حسابات الكوتشز</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("users", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} إنشاء حساب كوتش مرشح جديد</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-add-coach" onsubmit="event.preventDefault(); window.App.submitAddCoach();">
+                        <div class="admin-form-group">
+                            <label>الاسم الكامل للكوتش: *</label>
+                            <input type="text" id="coach-new-name" required placeholder="مثال: كوتش فيصل بن تركي العتيبي" />
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>البريد الإلكتروني: *</label>
+                                <input type="email" id="coach-new-email" required placeholder="faisal@cyce52.com" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>كلمة المرور الابتدائية: *</label>
+                                <input type="password" id="coach-new-password" required value="coach123" />
+                            </div>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>كود المرشح بالحقيبة: *</label>
+                                <input type="text" id="coach-new-code" required value="${autoCode}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>الرتبة المهنية: *</label>
+                                <input type="text" id="coach-new-title" required value="كوتش تنفيذي مرشح (ACC to PCC)" />
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("plus", {size:14, style:"margin-left:4px;"})} إنشاء حساب الكوتش</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitAddCoach() {
+        const name = document.getElementById('coach-new-name')?.value.trim();
+        const email = document.getElementById('coach-new-email')?.value.trim();
+        const password = document.getElementById('coach-new-password')?.value.trim();
+        const candidateCode = document.getElementById('coach-new-code')?.value.trim();
+        const title = document.getElementById('coach-new-title')?.value.trim();
+
+        if (!name || !email || !password || !candidateCode) {
+            showToast('يرجى ملء جميع الحقول المطلوبة.', 'warn');
+            return;
+        }
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.createAdminCoach({
+                    name,
+                    email,
+                    password,
+                    candidateCode,
+                    title
+                });
+                const res = await window.ApiClient.getCoaches();
+                appState.allCoachesList = res.coaches || [];
+            } catch (err) {
+                showToast(err.message || 'فشل إنشاء حساب الكوتش', 'error');
+                return;
+            }
+        } else {
+            const newCoach = {
+                id: Date.now(),
+                name,
+                email,
+                candidate_code: candidateCode,
+                title,
+                audit_status: 'in_progress',
+                tasksSummary: { total: 8, approved: 0, pending: 0 },
+                toolsCompleted: 0,
+                rubricsAverage: 0,
+                ethicsPassed: true
+            };
+            appState.allCoachesList = appState.allCoachesList || [];
+            appState.allCoachesList.push(newCoach);
+        }
+
+        closeAllModals();
+        showToast(`تم إنشاء حساب الكوتش (${name}) بنجاح.`, 'success');
+        renderAdminDashboard();
+    }
+
+    function openEditCoachModal(coachId) {
+        const coach = (appState.allCoachesList || []).find(c => c.id === coachId);
+        if (!coach) {
+            showToast('بيانات الكوتش غير موجودة.', 'warn');
+            return;
+        }
+
+        const modal = DOM.genericModal;
+        if (!modal) return;
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge-status submitted" style="font-size:0.75rem;">تعديل بيانات الحساب</span>
+                        <h3 style="margin-top:4px; font-size:1.15rem; color:#0B1B3D;">${icon("edit", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} تعديل حساب الكوتش: ${escapeHtml(coach.name)}</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-edit-coach" onsubmit="event.preventDefault(); window.App.submitEditCoach(${coach.id});">
+                        <div class="admin-form-group">
+                            <label>الاسم الكامل للكوتش: *</label>
+                            <input type="text" id="coach-edit-name" required value="${escapeHtml(coach.name)}" />
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>البريد الإلكتروني: *</label>
+                                <input type="email" id="coach-edit-email" required value="${escapeHtml(coach.email)}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>كود المرشح بالحقيبة: *</label>
+                                <input type="text" id="coach-edit-code" required value="${escapeHtml(coach.candidate_code || coach.candidateCode || '')}" />
+                            </div>
+                        </div>
+                        <div class="admin-grid-2">
+                            <div class="admin-form-group">
+                                <label>الرتبة المهنية: *</label>
+                                <input type="text" id="coach-edit-title" required value="${escapeHtml(coach.title || '')}" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label>حالة الاعتماد: *</label>
+                                <select id="coach-edit-status">
+                                    <option value="in_progress" ${coach.audit_status === 'in_progress' ? 'selected' : ''}>قيد الاستكمال (In Progress)</option>
+                                    <option value="ready" ${coach.audit_status === 'ready' ? 'selected' : ''}>مؤهل للمناقشة (Ready)</option>
+                                    <option value="certified" ${coach.audit_status === 'certified' ? 'selected' : ''}>مجاز ومعتمد رسمياً (Certified)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="padding:1rem 0 0 0; border:none; background:transparent;">
+                            <button type="button" class="btn btn-secondary" onclick="window.App.closeAllModals()">إلغاء</button>
+                            <button type="submit" class="btn btn-primary">${icon("save", {size:14, style:"margin-left:4px;"})} حفظ تعديلات الحساب</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    async function submitEditCoach(coachId) {
+        const name = document.getElementById('coach-edit-name')?.value.trim();
+        const email = document.getElementById('coach-edit-email')?.value.trim();
+        const candidateCode = document.getElementById('coach-edit-code')?.value.trim();
+        const title = document.getElementById('coach-edit-title')?.value.trim();
+        const audit_status = document.getElementById('coach-edit-status')?.value;
+
+        if (!name || !email || !candidateCode) {
+            showToast('يرجى ملء جميع الحقول المطلوبة.', 'warn');
+            return;
+        }
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.updateAdminCoach(coachId, {
+                    name,
+                    email,
+                    candidateCode,
+                    title,
+                    audit_status
+                });
+                const res = await window.ApiClient.getCoaches();
+                appState.allCoachesList = res.coaches || [];
+            } catch (err) {
+                showToast(err.message || 'فشل تحديث بيانات الكوتش', 'error');
+                return;
+            }
+        } else {
+            const coach = (appState.allCoachesList || []).find(c => c.id === coachId);
+            if (coach) {
+                coach.name = name;
+                coach.email = email;
+                coach.candidate_code = candidateCode;
+                coach.title = title;
+                coach.audit_status = audit_status;
+            }
+        }
+
+        closeAllModals();
+        showToast('تم تحديث بيانات الكوتش بنجاح.', 'success');
+        renderAdminDashboard();
+    }
+
+    async function deleteCoach(coachId) {
+        if (coachId === 1) {
+            showToast('لا يمكن حذف الكوتش النموذجي الأساسي لحماية النظام والبيانات.', 'warn');
+            return;
+        }
+
+        const confirmed = await confirmDialog({
+            title: 'حذف حساب كوتش متدرب',
+            message: 'هل أنت متأكد من حذف حساب هذا الكوتش وسجلاته نهائياً من المنظومة؟ لا يمكن التراجع عن هذا الإجراء.',
+            confirmText: 'نعم، حذف الحساب',
+            cancelText: 'إلغاء',
+            danger: true
+        });
+        if (!confirmed) return;
+
+        if (window.ApiClient && window.ApiClient.isServerAvailable && window.ApiClient.isAdmin()) {
+            try {
+                await window.ApiClient.deleteAdminCoach(coachId);
+                const res = await window.ApiClient.getCoaches();
+                appState.allCoachesList = res.coaches || [];
+            } catch (err) {
+                showToast(err.message || 'فشل حذف حساب الكوتش', 'error');
+                return;
+            }
+        } else {
+            appState.allCoachesList = (appState.allCoachesList || []).filter(c => c.id !== coachId);
+        }
+
+        showToast('تم حذف حساب الكوتش بنجاح.', 'info');
+        renderAdminDashboard();
+    }
+
     function onRealFileSelected(event, taskId) {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
@@ -889,7 +3090,7 @@
             infoBox.style.display = 'block';
             infoBox.innerHTML = `
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                    <span>📎</span>
+                    <span>${icon("paperclip", {size:14})}</span>
                     <strong>الملف المختار: ${file.name}</strong>
                     <span style="color:var(--text-muted); font-size:0.75rem;">(${(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
                 </div>
@@ -933,6 +3134,107 @@
         const { hasBlocker, blockerReasons } = checkEthicalBlocker();
 
         container.innerHTML = `
+            <!-- Coach Executive Hero Summary Banner -->
+            <div class="coach-hero-summary-card">
+                <div class="coach-hero-info">
+                    <div class="coach-hero-avatar">${icon("graduationCap", {size:30})}</div>
+                    <div class="coach-hero-texts">
+                        <h2>لوحة المتابعة المهنية الموحدة: ${appState.data.metadata.candidate.name}</h2>
+                        <p>
+                            <span>${appState.data.metadata.candidate.title}</span>
+                            <span>•</span>
+                            <span class="coach-hero-badge">رمز الاعتماد: ${appState.data.metadata.candidate.id}</span>
+                            <span>•</span>
+                            <span>المشرف العام: الماستر كوتش عبدالكريم الخليفي (cyce52.com)</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="coach-hero-actions">
+                    <button class="coach-hero-btn primary" onclick="window.App.scrollToSection('panel-tasks')">
+                        ${icon('document', {size:15, style:'margin-left:4px;'})} إيداع مهمة أو دليل
+                    </button>
+                    <button class="coach-hero-btn secondary" onclick="window.App.openNewToolModal()">
+                        ${icon('target', {size:15, style:'margin-left:4px;'})} تسجيل أداة جديدة (90)
+                    </button>
+                    <button class="coach-hero-btn secondary" onclick="window.App.scrollToSection('panel-chat')">
+                        ${icon('chat', {size:15, style:'margin-left:4px;'})} رسالة للمشرف
+                    </button>
+                    <button class="coach-hero-btn secondary" onclick="window.App.scrollToSection('panel-report')">
+                        ${icon('scroll', {size:15, style:'margin-left:4px;'})} استعراض محضر التخرج
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sticky Quick-Navigation Anchor Bar -->
+            <div class="coach-sticky-nav-bar" id="coach-sticky-nav-bar">
+                <button class="sticky-nav-pill active" data-target="panel-dashboard" onclick="window.App.scrollToSection('panel-dashboard')">
+                    <span>${icon("zap", {size:14, style:"margin-left:4px;"})} المؤشرات العامة</span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-tasks" onclick="window.App.scrollToSection('panel-tasks')">
+                    <span>${icon("document", {size:14, style:"margin-left:4px;"})} المهام والأدلة</span>
+                    <span class="pill-count">${appState.data.tasks.length}</span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-quant" onclick="window.App.scrollToSection('panel-quant')">
+                    <span>${icon("target", {size:14, style:"margin-left:4px;"})} تطبيقات الأدوات (90)</span>
+                    <span class="pill-count">90</span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-chat" onclick="window.App.scrollToSection('panel-chat')">
+                    <span>${icon("chat", {size:14, style:"margin-left:4px;"})} المحادثة والتوجيه</span>
+                    <span class="pill-live-dot"></span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-rubrics" onclick="window.App.scrollToSection('panel-rubrics')">
+                    <span>${icon("scale", {size:14, style:"margin-left:4px;"})} الروبركات الرسمية</span>
+                    <span class="pill-count">6</span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-competencies" onclick="window.App.scrollToSection('panel-competencies')">
+                    <span>${icon("brain", {size:14, style:"margin-left:4px;"})} الكفايات الـ 14</span>
+                    <span class="pill-count">43</span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-ethics" onclick="window.App.scrollToSection('panel-ethics')">
+                    <span>${icon("shield", {size:14, style:"margin-left:4px;"})} بوابة الأخلاقيات</span>
+                    <span class="pill-badge-pass">100%</span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-labs" onclick="window.App.scrollToSection('panel-labs')">
+                    <span>${icon("microscope", {size:14, style:"margin-left:4px;"})} المختبرات والتميز</span>
+                    <span class="pill-count">9</span>
+                </button>
+                <button class="sticky-nav-pill" data-target="panel-report" onclick="window.App.scrollToSection('panel-report')">
+                    <span>${icon("scroll", {size:14, style:"margin-left:4px;"})} محضر الاعتماد</span>
+                </button>
+            </div>
+
+            <!-- Quick Action Shortcuts Grid -->
+            <div class="quick-shortcuts-grid">
+                <div class="quick-shortcut-card" onclick="window.App.scrollToSection('panel-tasks')">
+                    <div class="quick-shortcut-icon blue">${icon("document", {size:22})}</div>
+                    <div class="quick-shortcut-info">
+                        <h4>إيداع المهام والتأملات</h4>
+                        <p>8 مهام ميدانية وبحثية معتمدة</p>
+                    </div>
+                </div>
+                <div class="quick-shortcut-card" onclick="window.App.openNewToolModal()">
+                    <div class="quick-shortcut-icon emerald">${icon("target", {size:22})}</div>
+                    <div class="quick-shortcut-info">
+                        <h4>تسجيل أداة تقييم (90)</h4>
+                        <p>MBTI وعجلة الحياة وSWOT بلا تكرار</p>
+                    </div>
+                </div>
+                <div class="quick-shortcut-card" onclick="window.App.scrollToSection('panel-chat')">
+                    <div class="quick-shortcut-icon amber">${icon("chat", {size:22})}</div>
+                    <div class="quick-shortcut-info">
+                        <h4>التوجيه الإشرافي وديوان الزمالة</h4>
+                        <p>ملاحظات صوتية ومستندات مباشرة</p>
+                    </div>
+                </div>
+                <div class="quick-shortcut-card" onclick="window.App.scrollToSection('panel-report')">
+                    <div class="quick-shortcut-icon purple">${icon("scroll", {size:22})}</div>
+                    <div class="quick-shortcut-info">
+                        <h4>محضر التدقيق والجاهزية</h4>
+                        <p>شهادة الاعتماد CYCE الرقمية</p>
+                    </div>
+                </div>
+            </div>
+
             ${hasBlocker ? `
                 <div class="doctrine-callout-box" style="border-right-color:var(--status-crimson); background:rgba(220, 38, 38, 0.15);">
                     <div class="doctrine-icon" style="color:var(--status-crimson);">
@@ -943,7 +3245,7 @@
                         </svg>
                     </div>
                     <div class="doctrine-content">
-                        <h4 style="color:var(--status-crimson-light);">⚠️ تنبيه حاسم: تفعيل حظر الاعتماد الأخلاقي المستقل</h4>
+                        <h4 style="color:var(--status-crimson-light);">${icon("alertTriangle", {size:18, style:"vertical-align:-3px; margin-left:4px;"})} تنبيه حاسم: تفعيل حظر الاعتماد الأخلاقي المستقل</h4>
                         <p style="color:var(--text-primary);">
                             <strong>المتوسط الحسابي لا يعوض بأي حال الإخفاق في الكفايات المهنية الجوهرية أو السلامة الأخلاقية.</strong>
                             <br>أسباب الحظر المرصودة: ${blockerReasons.join(' • ')}.
@@ -1089,7 +3391,7 @@
                     <div class="ethics-banner-info">
                         <h3>بوابة السلامة والنزاهة الأخلاقية المستقلة (Ethical Safeguards Gate)</h3>
                         <p>
-                            حالة التدقيق: <strong>${hasBlocker ? '⚠️ حظر أخلاقي نشط' : appState.data.ethicsGate.clearanceBadge}</strong> • 
+                            حالة التدقيق: <strong>${hasBlocker ? `${icon('alertTriangle', {size:14, style:'color:#DC2626; vertical-align:-2px; margin-left:3px;'})} حظر أخلاقي نشط` : appState.data.ethicsGate.clearanceBadge}</strong> • 
                             ${hasBlocker ? 'يوجد إخفاق في معيار حرج يمنع اعتماد التخرج.' : 'تم فحص كافة التعاقدات والسرية ونزع الهوية وحالة الإحالة REF-2026-01 بنجاح تام.'}
                         </p>
                     </div>
@@ -1351,7 +3653,7 @@
                     <div class="timestamps-pills-wrap">
                         <small style="color:var(--text-muted); margin-left:0.5rem;">طوابع التغذية الزمنية:</small>
                         ${r.timestamps.map(ts => `
-                            <button class="ts-pill-btn" onclick="window.App.jumpToTimestamp('${r.id}', '${ts.time}', '${escapeHtml(ts.note)}')">
+                            <button class="ts-pill-btn" onclick="window.App.jumpToTimestamp('${r.id}', '${ts.time}', '${escapeJsAttr(ts.note)}')">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                 ${ts.time}
                             </button>
@@ -1368,6 +3670,20 @@
         `).join('');
 
         container.innerHTML = `
+            <div class="onepage-section-header" id="sec-quant-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("target", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">مسار تطبيقات الأدوات الـ 90 والمتطلبات الميدانية</h2>
+                        <p class="sec-subtitle">توثيق 30 MBTI + 30 عجلة الحياة + 30 SWOT مع فحص منع التكرار ومتابعة الـ 20 حالة والـ 30 جلسة</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <span class="badge" style="background:#2563EB; color:#fff; padding:0.35rem 0.85rem; border-radius:999px; font-weight:700; font-size:0.82rem;">90 / 90 تطبيقاً موثقاً</span>
+                    <button class="btn btn-primary btn-sm" onclick="window.App.openNewToolModal()" style="background:#059669; border-color:#059669;">+ تسجيل تطبيق أداة جديد</button>
+                </div>
+            </div>
+
             <!-- Prerequisites Section -->
             <div class="section-header-wrap">
                 <div>
@@ -1623,12 +3939,36 @@
         `).join('');
     }
 
-    // Render Competency Matrix (43 + 1)
+    // Switch Competencies View Mode ('domains14' | 'subcomps44')
+    function switchCompsViewMode(mode) {
+        appState.compsViewMode = mode;
+        renderCompetencyMatrixPanel();
+    }
+
+    // Render Competency Matrix (14 Core Domains or 43 + 1 Subcompetencies)
     function renderCompetencyMatrixPanel() {
         const container = document.getElementById('comps-content-area');
         if (!container) return;
 
-        // Domains Filter Buttons
+        const switcherHtml = `
+            <div class="comps-view-switcher">
+                <button class="comps-switch-btn ${appState.compsViewMode === 'domains14' ? 'active' : ''}" onclick="window.App.switchCompsViewMode('domains14')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+                    مجالات الكفايات الـ 14 المعتمدة (الاتحاد العربي للكوتشنج)
+                </button>
+                <button class="comps-switch-btn ${appState.compsViewMode === 'subcomps44' ? 'active' : ''}" onclick="window.App.switchCompsViewMode('subcomps44')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    مصفوفة الكفايات التفصيلية (43 + 1) والمحاور الثمانية
+                </button>
+            </div>
+        `;
+
+        if (appState.compsViewMode === 'domains14') {
+            render14DomainsGrid(container, switcherHtml);
+            return;
+        }
+
+        // Subcompetencies (43 + 1) View
         let domainPills = `<button class="filter-pill-btn ${appState.compFilterDomain === 'ALL' ? 'active' : ''}" onclick="window.App.filterCompsByDomain('ALL')">كافة المحاور (9)</button>`;
         domainPills += appState.data.domains.map(d => `
             <button class="filter-pill-btn ${appState.compFilterDomain === d.id ? 'active' : ''}" onclick="window.App.filterCompsByDomain('${d.id}')">
@@ -1714,6 +4054,8 @@
         }).join('');
 
         container.innerHTML = `
+            ${switcherHtml}
+
             <div class="section-header-wrap">
                 <div>
                     <h3 class="section-title">مصفوفة الكفايات الـ 43 ومحاورها الثمانية + كفاية الإشراف</h3>
@@ -1751,13 +4093,193 @@
         `;
     }
 
+    // Render 14 Core Competency Domains Grid
+    function render14DomainsGrid(container, switcherHtml) {
+        const domains14 = appState.data.core14Domains || [];
+        const totalHours = domains14.reduce((acc, d) => acc + (d.targetHours || 0), 0);
+
+        const cardsHtml = domains14.map(domain => {
+            const indicatorsHtml = (domain.keyIndicators || []).map(ind => `
+                <li>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>${ind}</span>
+                </li>
+            `).join('');
+
+            const linkedCount = (domain.linkedCompetencies || []).length;
+
+            return `
+                <div class="domain14-card" id="domain14-${domain.id}">
+                    <div>
+                        <div class="domain14-header">
+                            <span class="domain14-code-pill">${domain.id}</span>
+                            <span class="badge-status approved" style="font-size:0.75rem;">
+                                المستوى 5/5: خبير
+                            </span>
+                        </div>
+                        <h4>${domain.title}</h4>
+                        <div class="domain14-subtitle">${domain.subtitle || ''}</div>
+                        <p class="domain14-desc">${domain.description || ''}</p>
+                        
+                        <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); margin-bottom:0.4rem;">
+                            أبرز المؤشرات السلوكية المقاسة:
+                        </div>
+                        <ul class="domain14-indicators-list">
+                            ${indicatorsHtml}
+                        </ul>
+                    </div>
+
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; margin-bottom:0.75rem; padding:0.5rem; background:var(--bg-input); border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+                            <span>الساعات المعتمدة: <strong>${domain.targetHours} ساعة</strong></span>
+                            <span>الكفايات المتقاطعة: <strong>${linkedCount}</strong></span>
+                        </div>
+
+                        <div class="domain14-footer">
+                            <span class="domain14-meta" style="color:var(--status-emerald-light); font-weight:700;">
+                                متحققة 100%
+                            </span>
+                            <button class="btn-sm btn-secondary" onclick="window.App.openInspectDomain14Modal('${domain.id}')">
+                                استعراض الأدلة والمعايير ←
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="onepage-section-header" id="sec-comps-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("brain", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">مصفوفة الكفايات والجدارات المهنية الـ 14</h2>
+                        <p class="sec-subtitle">المعايير المرجعية العليا المعتمدة لدى الاتحاد العربي للكوتشنج (الإصدار 3.0)</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <span class="badge" style="background:#059669; color:#fff; padding:0.35rem 0.85rem; border-radius:999px; font-weight:700; font-size:0.82rem;">${icon("check", {size:13, style:"vertical-align:-1px; margin-left:3px;"})} 43 / 43 كفاية متحققة</span>
+                </div>
+            </div>
+
+            ${switcherHtml}
+
+            <div class="section-header-wrap">
+                <div>
+                    <h3 class="section-title">مجالات الكفايات الـ 14 المعتمدة — الاتحاد العربي للكوتشنج</h3>
+                    <p class="section-desc">
+                        المعايير المرجعية العليا لبرنامج إعداد وتأهيل الماستر كوتش (الإصدار 3.0) بإشراف المستشار عبدالكريم الخليفي.
+                        تغطي مجالات الممارسة المهنية المعمقة بإجمالي 240 ساعة تدريبية وتطبيقية معتمدة ومؤشرات سلوكية دقيقة.
+                    </p>
+                </div>
+                <div class="section-actions">
+                    <span class="badge-status approved" style="font-size:0.88rem; padding:0.4rem 0.85rem;">
+                        إجمالي الساعات المعتمدة: ${totalHours} ساعة
+                    </span>
+                </div>
+            </div>
+
+            <div class="domains14-grid">
+                ${cardsHtml}
+            </div>
+        `;
+    }
+
+    // Modal: Inspect 14 Core Competency Domain Details
+    function openInspectDomain14Modal(domainId) {
+        const domain = (appState.data.core14Domains || []).find(d => d.id === domainId);
+        if (!domain) return;
+
+        const modal = DOM.domain14Modal || document.getElementById('domain14-modal');
+        if (!modal) return;
+
+        const linkedComps = (domain.linkedCompetencies || []).map(code => {
+            const comp = (appState.data.competencies || []).find(c => c.id === code || c.code === code);
+            return comp ? comp : { id: code, title: code, description: '' };
+        });
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width:720px;">
+                <div class="modal-header">
+                    <div>
+                        <span class="domain14-code-pill" style="font-size:0.8rem; margin-bottom:0.3rem; display:inline-block;">${domain.id} • ${domain.code}</span>
+                        <h3 style="margin:0.2rem 0;">${domain.title}</h3>
+                        <p style="font-size:0.82rem; color:var(--text-muted); margin:0;">${domain.subtitle || ''}</p>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div style="background:var(--bg-input); padding:0.9rem; border-radius:var(--radius-sm); margin-bottom:1.25rem; font-size:0.9rem; color:var(--text-secondary); line-height:1.6;">
+                        ${domain.description}
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1.25rem;">
+                        <div style="background:var(--bg-surface); padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+                            <div style="font-size:0.75rem; color:var(--text-muted);">الساعات المعتمدة للمجال:</div>
+                            <div style="font-size:1.1rem; font-weight:800; color:var(--brand-blue-light);">${domain.targetHours} ساعة تدريبية</div>
+                        </div>
+                        <div style="background:var(--bg-surface); padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+                            <div style="font-size:0.75rem; color:var(--text-muted);">مستوى الإتقان المطلوب:</div>
+                            <div style="font-size:1.1rem; font-weight:800; color:var(--status-emerald-light);">المستوى 5/5 (خبير ماستر)</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:1.25rem;">
+                        <h4 style="font-size:0.92rem; margin-bottom:0.5rem; color:var(--brand-navy); font-weight:800;">المؤشرات السلوكية المقاسة:</h4>
+                        <ul class="domain14-indicators-list" style="margin-bottom:0;">
+                            ${(domain.keyIndicators || []).map(ind => `
+                                <li>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    <span>${ind}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <div style="margin-bottom:1.25rem;">
+                        <h4 style="font-size:0.92rem; margin-bottom:0.5rem; color:var(--brand-navy); font-weight:800;">الكفايات الفرعية المتقاطعة (${linkedComps.length} كفايات):</h4>
+                        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+                            ${linkedComps.map(c => `
+                                <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-surface); padding:0.55rem 0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle); font-size:0.83rem;">
+                                    <div>
+                                        <strong style="color:var(--brand-blue-light); font-family:var(--font-mono); margin-left:0.5rem;">${c.id}</strong>
+                                        <span>${c.title}</span>
+                                    </div>
+                                    <span class="badge-status approved" style="font-size:0.7rem;">معتمد</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size:0.92rem; margin-bottom:0.5rem; color:var(--status-emerald-light); font-weight:800;">الأدلة والبراهين المودعة للمجال:</h4>
+                        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+                            ${(domain.requiredEvidences || []).map((ev, idx) => `
+                                <div style="display:flex; align-items:center; gap:0.5rem; background:var(--bg-surface); padding:0.5rem 0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle); font-size:0.82rem;">
+                                    <span style="color:var(--status-emerald-light); font-weight:bold;">${idx + 1}.</span>
+                                    <span>${ev}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" onclick="window.App.closeAllModals()">إغلاق المعاينة</button>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
     // Render Tasks & Evidence Lifecycle Hub
     function renderTasksPanel() {
         const container = document.getElementById('tasks-content-area');
         if (!container) return;
 
         const tasksCards = appState.data.tasks.map(t => {
-            const compsList = t.linkedCompetencies.map(cId => {
+            const compsList = (t.linkedCompetencies || []).map(cId => {
                 const comp = appState.data.competencies.find(c => c.id === cId);
                 return comp ? comp.title : cId;
             });
@@ -1783,8 +4305,8 @@
                     </div>
 
                     <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.78rem; margin-bottom:0.75rem; color:var(--text-secondary);">
-                        <span>الأدلة المرفوعة: <strong>${t.evidences.length} ملفات</strong></span>
-                        <span>التقييم: <strong style="color:var(--status-emerald-light); font-family:var(--font-mono);">${t.supervisorFeedback.grade} / 5</strong></span>
+                        <span>الأدلة المرفوعة: <strong>${(t.evidences || []).length} ملفات</strong></span>
+                        <span>التقييم: <strong style="color:var(--status-emerald-light); font-family:var(--font-mono);">${t.supervisorFeedback && t.supervisorFeedback.grade ? t.supervisorFeedback.grade + ' / 5' : (t.status === 'approved' ? '5.0 / 5' : 'بانتظار التقييم')}</strong></span>
                     </div>
 
                     <button class="btn-primary" style="width:100%; justify-content:center;" onclick="window.App.openTaskModal('${t.id}')">
@@ -1795,9 +4317,23 @@
         }).join('');
 
         container.innerHTML = `
+            <div class="onepage-section-header" id="sec-tasks-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("document", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">بنك المهام الميدانية وإيداع الأدلة والتأملات المهنية</h2>
+                        <p class="sec-subtitle">إيداع تقارير الجلسات، التسجيلات الصوتية، استمارة التأمل الرباعية، وتلقي التغذية الراجعة الإشرافية</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <span class="badge" style="background:#059669; color:#fff; padding:0.35rem 0.85rem; border-radius:999px; font-weight:700; font-size:0.82rem;">${icon("check", {size:13, style:"vertical-align:-1px; margin-left:3px;"})} 8 مهام معتمدة</span>
+                    <button class="btn btn-primary btn-sm" onclick="window.App.openTaskModal('TASK-01')">+ إيداع دليل جديد</button>
+                </div>
+            </div>
+
             <div class="section-header-wrap">
                 <div>
-                    <h3 class="section-title">بنك المهام وإيداع الأدلة وتتبع دورة الاعتماد</h3>
+                    <h3 class="section-title">بطاقات المهام الميدانية وتتبع دورة الاعتماد</h3>
                     <p class="section-desc">
                         دورة المهمة المعتمدة: تعليمات ومعايير ظاهرة ← التنفيذ ورفع الدليل ← تقييم ذاتي وتأمل رباعي 
                         ← مراجعة المشرف وتغذية راجعة (نصية وصوتية) ← التحسين وإعادة التسليم ← الاعتماد النهائي.
@@ -1913,7 +4449,7 @@
                             ${task.evidences.map((ev, evIdx) => `
                                 <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-surface); padding:0.75rem 1rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
                                     <div style="display:flex; align-items:center; gap:0.6rem;">
-                                        <span style="font-size:1.2rem;">${ev.type === 'audio' ? '🎵' : ev.type === 'video' ? '🎬' : '📄'}</span>
+                                        <span style="font-size:1.2rem;">${ev.type === 'audio' ? icon('music', {size:18}) : ev.type === 'video' ? icon('film', {size:18}) : icon('document', {size:18})}</span>
                                         <div>
                                             <div style="font-weight:bold; font-size:0.88rem;">${ev.name}</div>
                                             <div style="font-size:0.75rem; color:var(--text-muted);">${ev.size || ''} ${ev.pages ? '• ' + ev.pages + ' صفحات' : ''} ${ev.duration ? '• مدة: ' + ev.duration : ''}</div>
@@ -2008,8 +4544,8 @@
                             <div class="timestamps-pills-wrap">
                                 <small style="color:var(--text-muted); margin-left:0.5rem;">ملاحظات مرتبطة بالطوابع الزمنية:</small>
                                 ${task.supervisorFeedback.timestamps.map(ts => `
-                                    <button class="ts-pill-btn" onclick="window.App.jumpToTimestamp('sup_${task.id}', '${ts.time}', '${escapeHtml(ts.comment)}')">
-                                        ⏱ ${ts.time}: ${ts.comment.substring(0, 30)}...
+                                    <button class="ts-pill-btn" onclick="window.App.jumpToTimestamp('sup_${task.id}', '${ts.time}', '${escapeJsAttr(ts.comment)}')">
+                                        ${icon('clock', {size:12, style:'vertical-align:-1px; margin-left:3px;'})} ${ts.time}: ${ts.comment.substring(0, 30)}...
                                     </button>
                                 `).join('')}
                             </div>
@@ -2044,13 +4580,13 @@
                     ` : isCommittee ? `
                         <button class="btn-secondary" onclick="window.App.closeAllModals()">إغلاق</button>
                         <button class="btn-emerald btn-sm" onclick="window.App.committeeVerifyTask('${task.id}')">
-                            ✓ تدقيق واعتماد مطابقة الأدلة للجنة العلمية
+                            ${icon('check', {size:14, style:'margin-left:4px;'})} تدقيق واعتماد مطابقة الأدلة للجنة العلمية
                         </button>
                     ` : `
                         <button class="btn-secondary" onclick="window.App.closeAllModals()">إغلاق</button>
                         ${task.status === 'revision_required' ? `
                             <button class="btn-amber btn-sm" onclick="window.App.resubmitTask('${task.id}')">
-                                ↺ إعادة التسليم مع التحسين
+                                ${icon('refresh', {size:14, style:'margin-left:4px;'})} إعادة التسليم مع التحسين
                             </button>
                         ` : ''}
                         <button class="btn-primary" onclick="window.App.saveTaskReflection('${task.id}')">حفظ التعديلات والتأمل</button>
@@ -2059,7 +4595,7 @@
             </div>
         `;
 
-        modal.classList.add('active');
+        openModalWithFocus(modal);
     }
 
     // Toggle Add Evidence UI inside modal
@@ -2077,11 +4613,18 @@
 
         const type = document.getElementById('new-ev-type')?.value || 'document';
         const customName = document.getElementById('new-ev-name')?.value.trim();
-        const anonCheck = document.getElementById('new-ev-anon')?.checked;
+        const anonInput = document.getElementById('new-ev-anon');
+        const anonCheck = anonInput?.checked;
 
         if (!anonCheck) {
+            if (anonInput) {
+                anonInput.classList.add('is-invalid');
+                anonInput.focus();
+            }
             showToast('يجب الإقرار بنزع الهوية الرقمية للمستفيد وحماية الخصوصية.', 'warn');
             return;
+        } else if (anonInput) {
+            anonInput.classList.remove('is-invalid');
         }
 
         const realFile = appState.pendingFileUpload;
@@ -2171,14 +4714,14 @@
                 <div class="modal-body">
                     <div style="background:var(--bg-input); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle); margin-bottom:1rem;">
                         <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
-                            <span style="font-size:1.8rem;">${ev.type === 'audio' ? '🎵' : ev.type === 'video' ? '🎬' : '📄'}</span>
+                            <span style="font-size:1.8rem;">${ev.type === 'audio' ? icon('music', {size:18}) : ev.type === 'video' ? icon('film', {size:18}) : icon('document', {size:18})}</span>
                             <div>
                                 <h4 style="font-size:1rem; color:var(--brand-blue-light);">${ev.name}</h4>
                                 <small style="color:var(--text-muted); font-family:var(--font-mono);">الحجم: ${ev.size || '3.2 MB'} • التشفير: SHA-256 Verified</small>
                             </div>
                         </div>
                         <div style="background:rgba(5, 150, 105, 0.15); border:1px solid var(--status-emerald); padding:0.5rem 0.75rem; border-radius:var(--radius-sm); font-size:0.8rem; color:var(--status-emerald-light);">
-                            ✓ شهادة نزع الهوية الرقمية: تم التحقق الآلي من إخفاء الأسماء والأرقام والعناوين الشخصية لحماية الخصوصية.
+                            ${icon('check', {size:14, style:'margin-left:4px; vertical-align:-2px;'})} شهادة نزع الهوية الرقمية: تم التحقق الآلي من إخفاء الأسماء والأرقام والعناوين الشخصية لحماية الخصوصية.
                         </div>
                     </div>
 
@@ -2377,12 +4920,12 @@
                 </div>
 
                 <div class="level-desc-active">
-                    <strong>توصيف المستوى (${crit.currentLevel}):</strong> ${crit.levelsDesc[crit.currentLevel]}
+                    <strong>توصيف المستوى (${crit.currentLevel}):</strong> ${crit.levelsDesc && crit.levelsDesc[crit.currentLevel] ? crit.levelsDesc[crit.currentLevel] : 'أداء مستوفٍ لمعايير الحقيبة والروبرك المعتمد.'}
                 </div>
 
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-top:0.6rem; font-size:0.8rem; color:var(--text-secondary); flex-wrap:wrap; gap:0.5rem;">
-                    <span><strong>الدليل المسند:</strong> ${crit.evidence}</span>
-                    <span style="color:var(--status-emerald-light);"><strong>ملاحظة المقيم:</strong> ${crit.supervisorFeedback}</span>
+                    <span><strong>الدليل المسند:</strong> ${crit.evidence || 'توثيق ملف الإنجاز الميداني'}</span>
+                    <span style="color:var(--status-emerald-light);"><strong>ملاحظة المقيم:</strong> ${crit.supervisorFeedback || 'مستوفٍ بامتياز وفق الروبرك'}</span>
                 </div>
 
                 <!-- Required Improvement Box -->
@@ -2398,6 +4941,19 @@
         `).join('');
 
         container.innerHTML = `
+            <div class="onepage-section-header" id="sec-rubrics-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("scale", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">مصفوفة الروبركات التقييمية الرسمية (الاتحاد العربي للكوتشنج)</h2>
+                        <p class="sec-subtitle">الروبركات الستة المعتمدة (ص34–40) بمستويات الأداء الخمسة وأوزان المعايير وملاحظات التحسين المطلوب</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <span class="badge" style="background:#D97706; color:#fff; padding:0.35rem 0.85rem; border-radius:999px; font-weight:700; font-size:0.82rem;">6 روبركات معتمدة • 30 معياراً</span>
+                </div>
+            </div>
+
             <div class="section-header-wrap">
                 <div>
                     <h3 class="section-title">مصفوفة الروبركات التقييمية الستة وتوليد الدرجة المرجحة</h3>
@@ -2424,7 +4980,7 @@
                         <div style="font-size:0.75rem; color:var(--text-muted);">المتوسط المرجح من 5</div>
                         <div class="rubric-score-val" style="${hasEthicalBlocker ? 'color:var(--status-crimson);' : ''}">${weightedScore.toFixed(2)} / 5.00</div>
                         <div style="font-size:0.7rem; color:${hasEthicalBlocker ? 'var(--status-crimson)' : 'var(--status-emerald-light)'};">
-                            ${hasEthicalBlocker ? '⚠️ حظر أخلاقي: إخفاق في معيار حرج' : 'مستوفٍ لمعايير الجدارة والنزاهة'}
+                            ${hasEthicalBlocker ? `${icon('alertTriangle', {size:13, style:'vertical-align:-1px; margin-left:3px;'})} حظر أخلاقي: إخفاق في معيار حرج` : 'مستوفٍ لمعايير الجدارة والنزاهة'}
                         </div>
                     </div>
                 </div>
@@ -2499,7 +5055,7 @@
             <div style="display:flex; align-items:flex-start; justify-content:space-between; background:var(--bg-card); padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle); margin-bottom:1rem;">
                 <div style="display:flex; align-items:flex-start; gap:1rem;">
                     <span style="color:${cp.status === 'verified' ? 'var(--status-emerald-light)' : 'var(--status-crimson)'}; font-size:1.4rem; margin-top:2px;">
-                        ${cp.status === 'verified' ? '✓' : '⚠️'}
+                        ${cp.status === 'verified' ? icon('check', {size:18}) : icon('alertTriangle', {size:18})}
                     </span>
                     <div>
                         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
@@ -2549,6 +5105,19 @@
         `).join('');
 
         container.innerHTML = `
+            <div class="onepage-section-header" id="sec-ethics-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("shield", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">بوابة السلامة والنزاهة الأخلاقية المستقلة (Independent Ethical Gate)</h2>
+                        <p class="sec-subtitle">شرط اجتياز مستقل وحاسم 100%: لا يُمنح الاعتماد ولا يُجاز الكوتش ما لم يستوفِ السلامة الأخلاقية التامة</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <span class="badge" style="background:${ethics.status === 'passed' ? '#059669' : '#DC2626'}; color:#fff; padding:0.35rem 0.85rem; border-radius:999px; font-weight:700; font-size:0.82rem;">${ethics.status === 'passed' ? `${icon('check', {size:13, style:'vertical-align:-1px; margin-left:3px;'})} اجتياز معتمد 100%` : `${icon('alertTriangle', {size:13, style:'vertical-align:-1px; margin-left:3px;'})} قيد التدقيق`}</span>
+                </div>
+            </div>
+
             <div class="section-header-wrap">
                 <div>
                     <h3 class="section-title">بوابة السلامة والنزاهة الأخلاقية المستقلة (Independent Ethical Gate)</h3>
@@ -2566,7 +5135,7 @@
                 </div>
                 <div class="doctrine-content">
                     <h4 style="color:${ethics.status === 'passed' ? 'var(--status-emerald-light)' : 'var(--status-crimson-light)'};">
-                        ${ethics.status === 'passed' ? 'شهادة السلامة والامتثال الأخلاقي الشامل' : '⚠️ البوابة الأخلاقية قيد التدقيق والمراجعة'}
+                        ${ethics.status === 'passed' ? 'شهادة السلامة والامتثال الأخلاقي الشامل' : `${icon('alertTriangle', {size:16, style:'vertical-align:-2px; margin-left:3px;'})} البوابة الأخلاقية قيد التدقيق والمراجعة`}
                     </h4>
                     <p>${ethics.summary} — تدقيق الماستر كوتش عبدالكريم الخليفي بتاريخ ${ethics.auditDate}.</p>
                 </div>
@@ -2648,12 +5217,25 @@
                 </p>
                 <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; border-top:1px solid var(--border-subtle); padding-top:0.5rem;">
                     <span style="color:var(--status-emerald-light);">تم التحكيم والاعتماد</span>
-                    <button class="btn-sm btn-secondary" onclick="window.App.openExcellencePreview('${escapeHtml(ex.title)}')">عرض الوثيقة</button>
+                    <button class="btn-sm btn-secondary" onclick="window.App.openExcellencePreview('${escapeJsAttr(ex.title)}')">عرض الوثيقة</button>
                 </div>
             </div>
         `).join('');
 
         container.innerHTML = `
+            <div class="onepage-section-header" id="sec-labs-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("microscope", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">المختبرات التخصصية ومسار التميز المهني</h2>
+                        <p class="sec-subtitle">9 مختبرات متقدمة (30 ساعة) للممارسة المعيارية وضبط الجودة + متطلبات مسار التميز الاختياري</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <span class="badge" style="background:#2563EB; color:#fff; padding:0.35rem 0.85rem; border-radius:999px; font-weight:700; font-size:0.82rem;">${icon("check", {size:13, style:"vertical-align:-1px; margin-left:3px;"})} 9 مختبرات (30 ساعة)</span>
+                </div>
+            </div>
+
             <div class="section-header-wrap">
                 <div>
                     <h3 class="section-title">المختبرات التخصصية التسعة (30 ساعة تدريبية)</h3>
@@ -2698,7 +5280,7 @@
                         تم تحكيم هذا المخرج بنجاح واجتيازه مع مرتبة الشرف، وهو متطلب مسار التميز الإثرائي الداعم لشهادة الإتمام والاحتراف المتقدم.
                     </p>
                     <div style="background:var(--bg-input); padding:0.75rem; border-radius:var(--radius-sm); font-size:0.8rem; color:var(--status-emerald-light);">
-                        ✓ تم اعتماد التقرير من قبل اللجنة العلمية لشركة تمكين الرؤية.
+                        ${icon('check', {size:14, style:'margin-left:4px; vertical-align:-2px;'})} تم اعتماد التقرير من قبل اللجنة العلمية لشركة تمكين الرؤية.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2725,6 +5307,23 @@
 
         const { hasBlocker, blockerReasons } = checkEthicalBlocker();
 
+        const certConfig = appState.data.certificateConfig || (window.ProgramStore ? window.ProgramStore.DEFAULT_DATA.certificateConfig : null) || {
+            title: "محضر التدقيق والجاهزية المهنية للاعتماد النهائي",
+            subtitle: "المطابقة النظامية الشاملة لكافة متطلبات حقيبة تأهيل الماستر كوتش (الإصدار 3.0 - 2026)",
+            documentRef: "AUDIT-2026-MC084",
+            issueDate: "2026-05-20",
+            orgName: "شركة تمكين الرؤية للاستشارات المهنية",
+            programSub: "برنامج إعداد وتأهيل الماستر كوتش • الإصدار 3.0 • النسخة التطويرية 2026",
+            accreditationNote: "cyce52.com • ترخيص مهني معتمد",
+            signatory1: { title: "المشرف الميداني المعتمد", name: "كوتش د. فهد السبيعي", sub: "توقيع إلكتروني معتمد #FS-882" },
+            signatory2: { title: "رئيس اللجنة والمدير العام", name: "الماستر كوتش عبدالكريم الخليفي", sub: "مؤسس شركة تمكين الرؤية #AK-001" },
+            stampText: { line1: "تمكين الرؤية", line2: "اعتماد مهني", line3: "2026" },
+            committeeVerdictText: "بناءً على فحص كافة الأدلة الثبوتية، والتحقق المستقل من الساعات والممارسة الميدانية، والتأكد التام من استيفاء بوابة النزاهة الأخلاقية، ومناقشة مشروع التخرج والدفاع؛ توصي اللجنة بإجماع الآراء بمنح الكوتش أحمد بن صالح الشمري شهادة إتمام برنامج إعداد وتأهيل الماستر كوتش بتقدير ممتاز مع مرتبة الشرف، ورفع التوصية للاعتماد المهني النهائي.",
+            rows: []
+        };
+        const certRows = (certConfig.rows && certConfig.rows.length > 0) ? certConfig.rows : (window.ProgramStore?.DEFAULT_DATA?.certificateConfig?.rows || []);
+        const isAdmin = (window.ApiClient && window.ApiClient.isAdmin()) || (appState.currentRole === 'supervisor' || appState.currentRole === 'committee');
+
         // Rubrics summary rows
         const rubricsRowsHtml = appState.data.rubrics.map(r => {
             const rScore = r.criteria.reduce((sum, c) => sum + (c.currentLevel * c.weight), 0);
@@ -2734,12 +5333,46 @@
                     <td><strong>${r.title}</strong></td>
                     <td>5.00</td>
                     <td><strong style="color:${critCriticalFailed ? '#DC2626' : '#047857'}; font-family:var(--font-mono);">${rScore.toFixed(2)}</strong> / 5.00</td>
-                    <td>${critCriticalFailed ? '<span style="color:#DC2626; font-weight:bold;">⚠️ إخفاق في معيار حرج</span>' : '<span style="color:#047857; font-weight:bold;">مستوفٍ بامتياز</span>'}</td>
+                    <td>${critCriticalFailed ? ('<span style="color:#DC2626; font-weight:bold;">' + icon('alertTriangle', {size:13, style:'vertical-align:-1px; margin-left:3px;'}) + ' إخفاق في معيار حرج</span>') : '<span style="color:#047857; font-weight:bold;">مستوفٍ بامتياز</span>'}</td>
                 </tr>
             `;
         }).join('');
 
         container.innerHTML = `
+            <div class="onepage-section-header" id="sec-report-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("scroll", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">${certConfig.title || 'محضر التدقيق والجاهزية المهنية للاعتماد النهائي'}</h2>
+                        <p class="sec-subtitle">${certConfig.subtitle || 'المطابقة النظامية الشاملة لكافة متطلبات حقيبة تأهيل الماستر كوتش (الإصدار 3.0 - 2026)'}</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <button class="btn btn-primary btn-sm" onclick="window.print()" style="background:#0B1B3D; border-color:#0B1B3D; display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 1rem; font-weight:700;">
+                        <span>${icon('printer', {size:16, style:'margin-left:4px;'})} طباعة المحضر والشهادة</span>
+                    </button>
+                </div>
+            </div>
+
+            ${isAdmin ? `
+                <div class="cert-admin-toolbar no-print">
+                    <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                        <span style="font-size:0.85rem; font-weight:700; color:#0B1B3D;">${icon('zap', {size:15, style:'color:var(--status-amber); vertical-align:-2px; margin-left:4px;'})} تحكم المشرف العام بالشهادة والمحضر:</span>
+                        <button class="btn btn-sm btn-primary" onclick="window.App.openAddCertificateRowModal()">
+                            ${icon('plus', {size:14, style:'margin-left:4px;'})} إضافة بند جديد للمحضر
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="window.App.openEditCertificateMetaModal()">
+                            ${icon('settings', {size:14, style:'margin-left:4px;'})} تخصيص ترويسة وموقعي الشهادة
+                        </button>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline" onclick="window.App.resetCertificateRows()" style="color:#64748B;">
+                            ${icon('refresh', {size:14, style:'margin-left:4px;'})} استعادة البنود النموذجية
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
+
             <div class="official-dossier-sheet">
                 <div class="dossier-watermark">TAMKEEN AL-ROAYA</div>
 
@@ -2747,24 +5380,24 @@
                     <div class="brand-section">
                         <img src="assets/images/logo.png" alt="شعار تمكين الرؤية" class="dossier-logo-img">
                         <div class="dossier-org-text">
-                            <h2>شركة تمكين الرؤية للاستشارات المهنية</h2>
-                            <p>برنامج إعداد وتأهيل الماستر كوتش • الإصدار 3.0 • النسخة التطويرية 2026</p>
-                            <small>cyce52.com • ترخيص مهني معتمد</small>
+                            <h2>${certConfig.orgName || 'شركة تمكين الرؤية للاستشارات المهنية'}</h2>
+                            <p>${certConfig.programSub || 'برنامج إعداد وتأهيل الماستر كوتش • الإصدار 3.0 • النسخة التطويرية 2026'}</p>
+                            <small>${certConfig.accreditationNote || 'cyce52.com • ترخيص مهني معتمد'}</small>
                         </div>
                     </div>
                     <div class="dossier-meta-box">
-                        <div>رقم الوثيقة: <strong>AUDIT-2026-MC084</strong></div>
-                        <div>تاريخ التدقيق: <strong>2026-05-20</strong></div>
+                        <div>رقم الوثيقة: <strong>${certConfig.documentRef || 'AUDIT-2026-MC084'}</strong></div>
+                        <div>تاريخ التدقيق: <strong>${certConfig.issueDate || '2026-05-20'}</strong></div>
                         <div>الرقم التدريبي: <strong>${candidate.id}</strong></div>
                     </div>
                 </div>
 
                 <div style="text-align:center; margin-bottom:2rem;">
                     <h1 style="color:#0B1B3D; font-size:1.6rem; font-weight:900;">
-                        محضر التدقيق والجاهزية المهنية للاعتماد النهائي
+                        ${certConfig.title || 'محضر التدقيق والجاهزية المهنية للاعتماد النهائي'}
                     </h1>
                     <p style="color:#475569; font-size:0.95rem;">
-                        استناداً إلى معايير الحقيبة التدريبية الإصدار 3.0 ومحاور الكفايات الـ 43 والروبركات الستة
+                        ${certConfig.subtitle || 'استناداً إلى معايير الحقيبة التدريبية الإصدار 3.0 ومحاور الكفايات الـ 43 والروبركات الستة'}
                     </p>
                 </div>
 
@@ -2775,7 +5408,7 @@
                     <div><strong>المشرف الأكاديمي:</strong><br>${candidate.supervisorName}</div>
                 </div>
 
-                <!-- Comprehensive Summary Table -->
+                <!-- Dynamic Certificate Criteria Table -->
                 <table class="dossier-summary-table">
                     <thead>
                         <tr>
@@ -2784,93 +5417,36 @@
                             <th>المحقق في ملف الإنجاز</th>
                             <th>مؤشر التحقق والجودة</th>
                             <th>قرار اللجنة</th>
+                            ${isAdmin ? '<th class="no-print" style="width:140px; text-align:center;">إجراء المشرف</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td><strong>الساعات المعتمدة الإجمالية</strong></td>
-                            <td>240 ساعة</td>
-                            <td>${totalHours} ساعة</td>
-                            <td>استيفاء كامل للمكونات السبعة</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>مشروعات الكوتشنج الميدانية</strong></td>
-                            <td>20 حالة متكاملة</td>
-                            <td>${casesCount} حالة كاملة</td>
-                            <td>ملفات كاملة تشمل التدخل والأثر</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>الجلسات الميدانية الموثقة</strong></td>
-                            <td>30 جلسة موزعة</td>
-                            <td>${sessionsCount} جلسة</td>
-                            <td>تقارير واعتمادات مسبقة</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>تطبيقات الأدوات (MBTI / عجلة / SWOT)</strong></td>
-                            <td>90 تطبيقاً (30 لكل أداة)</td>
-                            <td>${toolsCount} تطبيقاً</td>
-                            <td>تحقق صارم من عدم التكرار الداخلي</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>النماذج الابتكارية للكوتشنج</strong></td>
-                            <td>10 نماذج مبتكرة</td>
-                            <td>${appState.data.innovativeModels.length} نماذج</td>
-                            <td>مختبرة ومقاسة الأثر</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>أداة تحليل الشخصية المبتكرة</strong></td>
-                            <td>أداة واحدة على الأقل</td>
-                            <td>مقياس LMMI</td>
-                            <td>تحقق سيكومتري أولي موثق</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>تهيئة مؤسسة للكوتشنج</strong></td>
-                            <td>مؤسسة واحدة على الأقل</td>
-                            <td>${appState.data.orgPreparation.orgName}</td>
-                            <td>قرافي للمسارات + Pfeiffer المعدل</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>التسجيلات الاحترافية بالموضوعات</strong></td>
-                            <td>5 تسجيلات صوتية</td>
-                            <td>${appState.data.professionalRecordings.length} تسجيلات</td>
-                            <td>تغذية راجعة بطوابع زمنية</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى 100%</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>الورقة العلمية التطبيقية</strong></td>
-                            <td>50 صفحة كحد أدنى</td>
-                            <td>${appState.data.researchPaper.totalPages} صفحة (APA7)</td>
-                            <td>عرض مرئي في الملتقى السنوي</td>
-                            <td><span style="color:#047857; font-weight:bold;">مستوفى بامتياز</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>مشروع التخرج الابتكاري والدفاع</strong></td>
-                            <td>مشروع مطور ومجاز</td>
-                            <td>منظومة تمكين 360</td>
-                            <td>دفاع علني ومناقشة أمام اللجنة</td>
-                            <td><span style="color:#047857; font-weight:bold;">مجاز بامتياز</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>بوابة السلامة والنزاهة الأخلاقية</strong></td>
-                            <td>شرط مستقل وحاسم</td>
-                            <td>${appState.data.ethicsGate.status === 'passed' ? 'اجتياز 100%' : 'معلق'}</td>
-                            <td>خلو من المخالفات وإحالة نموذجية</td>
-                            <td><span style="color:${appState.data.ethicsGate.status === 'passed' ? '#047857' : '#DC2626'}; font-weight:bold;">${appState.data.ethicsGate.status === 'passed' ? 'اجتياز مطلق' : 'حظر معلق'}</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>الكفايات الـ 43 الشاملة</strong></td>
-                            <td>43 كفاية فرعية</td>
-                            <td>${coreMastered} كفاية متحققة</td>
-                            <td>أدلة متقاطعة وتأملات رباعية</td>
-                            <td><span style="color:#047857; font-weight:bold;">متحققة بالكامل</span></td>
-                        </tr>
+                        ${certRows.map((row) => `
+                            <tr data-row-id="${row.id}" style="${row.isCustom ? 'background:rgba(5, 150, 105, 0.03);' : ''}">
+                                <td>
+                                    <strong>${row.title}</strong>
+                                    ${row.isCustom ? '<span style="margin-right:6px; font-size:0.7rem; background:#E0F2FE; color:#0369A1; padding:2px 6px; border-radius:4px; font-weight:bold;">بند مخصص</span>' : ''}
+                                </td>
+                                <td>${row.target}</td>
+                                <td><strong>${row.achieved}</strong></td>
+                                <td>${row.indicator}</td>
+                                <td>
+                                    <span style="color:${row.status === 'blocked' || row.status === 'flagged' ? '#DC2626' : '#047857'}; font-weight:bold;">
+                                        ${row.verdict}
+                                    </span>
+                                </td>
+                                ${isAdmin ? `
+                                    <td class="no-print" style="white-space:nowrap; text-align:center;">
+                                        <button class="btn-xs btn-outline" onclick="window.App.openEditCertificateRowModal('${row.id}')" title="تعديل هذا البند" style="margin-left:4px;">
+                                            ${icon('edit', { size: 12, cls: 'inline-icon' })} تعديل
+                                        </button>
+                                        <button class="btn-xs btn-danger-outline" onclick="window.App.deleteCertificateRow('${row.id}')" title="حذف هذا البند">
+                                            ${icon('trash', { size: 12, cls: 'inline-icon' })} حذف
+                                        </button>
+                                    </td>
+                                ` : ''}
+                            </tr>
+                        `).join('')}
                     </tbody>
                 </table>
 
@@ -2897,17 +5473,17 @@
                 <!-- Committee Final Verdict -->
                 <div style="background:${hasBlocker ? '#FEF2F2' : '#ECFDF5'}; border:2px solid ${hasBlocker ? '#DC2626' : '#059669'}; border-radius:8px; padding:1.5rem; margin-bottom:2.5rem;">
                     <h3 style="color:${hasBlocker ? '#991B1B' : '#065F46'}; font-size:1.15rem; font-weight:800; margin-bottom:0.5rem;">
-                        ${hasBlocker ? '⚠️ قرار اللجنة العلمية: حظر التوصية بالاعتماد النهائي' : 'قرار اللجنة العلمية ولجنة الاعتماد المهني:'}
+                        ${hasBlocker ? `${icon('alertTriangle', {size:18, style:'vertical-align:-3px; margin-left:4px;'})} قرار اللجنة العلمية: حظر التوصية بالاعتماد النهائي` : 'قرار اللجنة العلمية ولجنة الاعتماد المهني:'}
                     </h3>
                     <p style="color:${hasBlocker ? '#7F1D1D' : '#047857'}; font-size:0.95rem; line-height:1.6;">
                         ${hasBlocker ? `
                             نظراً لرصد إخفاق في المعايير الأخلاقية أو المهنية الجوهرية (${blockerReasons.join(' • ')})، 
                             فإن النظام المنهجي لتمكين الرؤية يمنع منح الاعتماد (المتوسط الحسابي لا يعوض السلامة الأخلاقية بأي حال). 
                             يُعاد الملف للمشارك لاستيفاء خطط التحسين المطلوبة وإعادة التقييم.
-                        ` : `
+                        ` : certConfig.committeeVerdictText || `
                             بناءً على فحص كافة الأدلة الثبوتية، والتحقق المستقل من الساعات والممارسة الميدانية، 
                             والتأكد التام من استيفاء بوابة النزاهة الأخلاقية، ومناقشة مشروع التخرج والدفاع؛ 
-                            <strong>توصي اللجنة بإجماع الآراء بمنح الكوتش أحمد بن صالح الشمري شهادة إتمام برنامج إعداد وتأهيل الماستر كوتش بتقدير ممتاز مع مرتبة الشرف</strong>، 
+                            <strong>توصي اللجنة بإجماع الآراء بمنح الكوتش ${candidate.name} شهادة إتمام برنامج إعداد وتأهيل الماستر كوتش بتقدير ممتاز مع مرتبة الشرف</strong>، 
                             ورفع التوصية للاعتماد المهني النهائي.
                         `}
                     </p>
@@ -2916,21 +5492,24 @@
                 <!-- Signatures Row -->
                 <div class="signatures-row">
                     <div class="signature-block">
-                        <div class="signature-title">المشرف الميداني المعتمد</div>
-                        <div class="signature-name">كوتش د. فهد السبيعي</div>
-                        <div style="font-size:0.75rem; color:#64748B; margin-top:4px;">توقيع إلكتروني معتمد #FS-882</div>
+                        <div class="signature-title">${certConfig.signatory1?.title || 'المشرف الميداني المعتمد'}</div>
+                        <div class="signature-calligraphy">${(certConfig.signatory1?.name || '').replace(/^(كوتش\s+|د\.\s+)+/, '') || 'فهد السبيعي'}</div>
+                        <div class="signature-name">${certConfig.signatory1?.name || 'كوتش د. فهد السبيعي'}</div>
+                        <div style="font-size:0.75rem; color:#64748B; margin-top:4px;">${certConfig.signatory1?.sub || 'توقيع إلكتروني معتمد #FS-882'}</div>
                     </div>
 
                     <div class="stamp-box-simulated">
-                        <span>تمكين الرؤية</span>
-                        <span>اعتماد مهني</span>
-                        <span>2026</span>
+                        <span>${certConfig.stampText?.line1 || 'تمكين الرؤية'}</span>
+                        <span style="color:#D97706; font-size:0.65rem; font-weight:900;">${icon("star", {size:10, style:"fill:#D97706; vertical-align:-1px; margin-left:2px;"})} اعتماد رسمي ${icon("star", {size:10, style:"fill:#D97706; vertical-align:-1px; margin-right:2px;"})}</span>
+                        <span>${certConfig.stampText?.line2 || 'المجلس العلمي'}</span>
+                        <span style="font-family:var(--font-mono); font-size:0.7rem;">${certConfig.stampText?.line3 || '2026'}</span>
                     </div>
 
                     <div class="signature-block">
-                        <div class="signature-title">رئيس اللجنة والمدير العام</div>
-                        <div class="signature-name">الماستر كوتش عبدالكريم الخليفي</div>
-                        <div style="font-size:0.75rem; color:#64748B; margin-top:4px;">مؤسس شركة تمكين الرؤية #AK-001</div>
+                        <div class="signature-title">${certConfig.signatory2?.title || 'رئيس اللجنة والمدير العام'}</div>
+                        <div class="signature-calligraphy">${(certConfig.signatory2?.name || '').replace(/^(الماستر\s+كوتش\s+|كوتش\s+|د\.\s+)+/, '') || 'عبدالكريم الخليفي'}</div>
+                        <div class="signature-name">${certConfig.signatory2?.name || 'الماستر كوتش عبدالكريم الخليفي'}</div>
+                        <div style="font-size:0.75rem; color:#64748B; margin-top:4px;">${certConfig.signatory2?.sub || 'مؤسس شركة تمكين الرؤية #AK-001'}</div>
                     </div>
                 </div>
             </div>
@@ -2987,7 +5566,7 @@
             </div>
         `;
 
-        modal.classList.add('active');
+        openModalWithFocus(modal);
     }
 
     // Submit Tool Application with True Non-Duplication Checking
@@ -3033,7 +5612,7 @@
                 }
             } catch (err) {
                 openGenericModal(
-                    '⚠️ تنبيه نظام التحقق: تكرار المستفيد داخل الأداة الواحدة',
+                    'تنبيه نظام التحقق: تكرار المستفيد داخل الأداة الواحدة',
                     `<div style="color:var(--text-primary); line-height:1.6;">
                         ${err.message || 'المستفيد مسجل مسبقاً في هذه الأداة!'}<br><br>
                         <strong>تنص لائحة الحقيبة (ص10، ص30) صراحةً:</strong><br>
@@ -3050,7 +5629,7 @@
         const existingApp = (tool.applications || []).find(a => a.beneficiaryCode.toUpperCase() === code);
         if (existingApp) {
             openGenericModal(
-                '⚠️ تنبيه نظام التحقق: تكرار المستفيد داخل الأداة الواحدة',
+                'تنبيه نظام التحقق: تكرار المستفيد داخل الأداة الواحدة',
                 `<div style="color:var(--text-primary); line-height:1.6;">
                     المستفيد <strong>(${code})</strong> مسجل مسبقاً في أداة <strong>${tool.label}</strong> بتاريخ ${existingApp.date}!<br><br>
                     <strong>تنص لائحة الحقيبة (ص10، ص30) صراحةً:</strong><br>
@@ -3089,6 +5668,12 @@
     function filterToolApplications(val) {
         appState.toolsSearchQuery = val;
         renderQuantitativePanel();
+        const searchInput = DOM.quantContentArea?.querySelector('input[placeholder*="بحث برمز"]');
+        if (searchInput) {
+            searchInput.focus();
+            const len = searchInput.value.length;
+            try { searchInput.setSelectionRange(len, len); } catch (e) {}
+        }
     }
 
     function toggleSessionsView() {
@@ -3172,7 +5757,7 @@
                 </div>
             </div>
         `;
-        modal.classList.add('active');
+        openModalWithFocus(modal);
     }
 
     // Modal: Open Competency Details (43 + 1)
@@ -3243,7 +5828,7 @@
                 </div>
             </div>
         `;
-        modal.classList.add('active');
+        openModalWithFocus(modal);
     }
 
     // Audio Playback Simulation with Web Audio API Synthesizer
@@ -3337,7 +5922,7 @@
         const noteBox = document.getElementById(`active-ts-note-${trackId}`);
         if (noteBox) {
             noteBox.style.display = 'block';
-            noteBox.innerHTML = `<strong>⏱ ${timeStr}:</strong> ${note}`;
+            noteBox.innerHTML = `<strong>${icon('clock', {size:13, style:'vertical-align:-2px; margin-left:3px;'})} ${timeStr}:</strong> ${note}`;
         }
         showToast(`انتقال إلى الطابع الزمني [${timeStr}]: ${note}`, 'info');
     }
@@ -3398,6 +5983,12 @@
     function onCompSearch(val) {
         appState.compSearchQuery = val;
         renderCompetencyMatrixPanel();
+        const compInput = DOM.compsContentArea?.querySelector('input[placeholder*="بحث في الكفايات"]');
+        if (compInput) {
+            compInput.focus();
+            const len = compInput.value.length;
+            try { compInput.setSelectionRange(len, len); } catch (e) {}
+        }
     }
 
     function filterCompsByDomain(domainId) {
@@ -3410,12 +6001,1111 @@
         renderCompetencyMatrixPanel();
     }
 
+    // ==========================================================================
+    // Real-Time & Persistent Supervisory & Group Chat Hub Implementation
+    // ==========================================================================
+
+    async function loadChatChannels() {
+        if (window.ApiClient && window.ApiClient.token) {
+            try {
+                const res = await window.ApiClient.getChatChannels();
+                if (res && res.channels && res.channels.length > 0) {
+                    appState.chatState.channels = res.channels;
+                    if (!appState.chatState.activeChannelId) {
+                        appState.chatState.activeChannelId = res.channels[0].id;
+                    }
+                    await loadChatMessages(appState.chatState.activeChannelId);
+                    updateChatNavBadge();
+                    return;
+                }
+            } catch (err) {
+                console.warn('API getChatChannels notice:', err.message);
+            }
+        }
+
+        // Offline / Mock fallback seed channels
+        if (!appState.chatState.channels || appState.chatState.channels.length === 0) {
+            appState.chatState.channels = [
+                {
+                    id: 1,
+                    name: "ديوان زمالة الماستر كوتش (دفعة 2026)",
+                    channel_type: "group",
+                    description: "ديوان النقاش المهني المفتوح لكافة الكوتشز المقيدين بالدفعة والماستر كوتش المشرف",
+                    last_message: "مرحباً بكم زملاء دفعة الماستر كوتش 2026 في منصة التوجيه المعتمدة",
+                    last_message_time: new Date().toISOString(),
+                    unread_count: 0
+                },
+                {
+                    id: 2,
+                    name: "جلسات التوجيه الإشرافي المباشر",
+                    channel_type: "direct",
+                    description: "قناة التواصل الإشرافي الخاص والآمن بين الماستر كوتش عبدالكريم والكوتش أحمد",
+                    last_message: "تم الاطلاع على تسجيل الجلسة رقم 14، يرجى الاستماع للتوجيه الصوتي المرفق.",
+                    last_message_time: new Date().toISOString(),
+                    unread_count: 0
+                }
+            ];
+            appState.chatState.activeChannelId = 1;
+            appState.chatState.messages = [
+                {
+                    id: 1,
+                    channel_id: 1,
+                    sender_id: 1,
+                    sender_name: "الماستر كوتش عبدالكريم الخليفي",
+                    sender_role: "admin",
+                    message_type: "text",
+                    content: "أهلاً وسهلاً بكافة الزملاء في ديوان زمالة الماستر كوتش (دفعة 2026). هذا الفضاء مخصص للتداول المعرفي، استعراض النماذج الابتكارية، وتبادل الخبرات الميدانية.",
+                    created_at: new Date(Date.now() - 3600000).toISOString()
+                },
+                {
+                    id: 2,
+                    channel_id: 1,
+                    sender_id: 2,
+                    sender_name: "كوتش أحمد بن صالح الشمري",
+                    sender_role: "coach",
+                    message_type: "text",
+                    content: "شاكر ومقدر ماستر عبدالكريم. بدأت اليوم مرحلة تطبيق مقياس مؤشرات النضج القيادي LMMI في التدخل المؤسسي مع الحالة رقم 12 وسأوافيكم بالنتائج.",
+                    created_at: new Date(Date.now() - 1800000).toISOString()
+                }
+            ];
+        }
+        updateChatNavBadge();
+    }
+
+    async function loadChatMessages(channelId) {
+        if (!channelId) return;
+        if (window.ApiClient && window.ApiClient.token) {
+            try {
+                const res = await window.ApiClient.getChatMessages(channelId, { search: appState.chatState.searchQuery });
+                if (res && res.messages) {
+                    appState.chatState.messages = res.messages;
+                    await window.ApiClient.markChatRead(channelId);
+                    const ch = appState.chatState.channels.find(c => c.id === channelId);
+                    if (ch) {
+                        ch.unread_count = 0;
+                        ch.unreadCount = 0;
+                    }
+                    updateChatNavBadge();
+                    return;
+                }
+            } catch (err) {
+                console.warn('API getChatMessages notice:', err.message);
+            }
+        }
+    }
+
+    async function switchChatChannel(channelId) {
+        if (appState.chatState.audioElement && !appState.chatState.audioElement.paused) {
+            try { appState.chatState.audioElement.pause(); } catch (_) {}
+            appState.chatState.currentPlayingAudioMsgId = null;
+        }
+        appState.chatState.activeChannelId = Number(channelId);
+        await loadChatMessages(appState.chatState.activeChannelId);
+        renderChatPanel();
+    }
+
+    function updateChatNavBadge() {
+        const badge = DOM.chatNavBadge || document.getElementById('chat-nav-badge');
+        if (!badge) return;
+        const totalUnread = (appState.chatState.channels || []).reduce((acc, c) => acc + (c.unread_count || c.unreadCount || 0), 0);
+        if (totalUnread > 0) {
+            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function renderChatPanel() {
+        if (window.ChatWidget && typeof window.ChatWidget.render === 'function') {
+            window.ChatWidget.render();
+            return;
+        }
+        const container = DOM.chatContentArea || document.getElementById('chat-content-area');
+        if (!container) return;
+
+        const activeChannel = appState.chatState.channels.find(c => c.id === appState.chatState.activeChannelId) || appState.chatState.channels[0];
+
+        container.innerHTML = `
+            <div class="onepage-section-header" id="sec-chat-header">
+                <div class="sec-header-left">
+                    <span class="sec-icon-box">${icon("chat", {size:24})}</span>
+                    <div>
+                        <h2 class="sec-title">مركز المحادثات والتوجيه الإشرافي المباشر</h2>
+                        <p class="sec-subtitle">قناة إشرافية خاصة مع الماستر كوتش عبدالكريم بالإضافة إلى ديوان الزمالة الجماعي (صوت، صور، ومستندات)</p>
+                    </div>
+                </div>
+                <div class="sec-header-right">
+                    <span class="badge" style="background:#10B981; color:#fff; padding:0.35rem 0.85rem; border-radius:999px; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:0.4rem;">
+                        <span style="width:7px; height:7px; background:#fff; border-radius:50%; display:inline-block;"></span>
+                        بث حي متصل (SSE)
+                    </span>
+                </div>
+            </div>
+
+            <div class="chat-hub-container">
+                <!-- Sidebar -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <div class="chat-sidebar-title-row">
+                            <h3>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                مركز المحادثات والتوجيه
+                            </h3>
+                        </div>
+                        <div class="chat-search-wrap">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" placeholder="بحث في الرسائل والقنوات..." value="${appState.chatState.searchQuery || ''}" oninput="window.App.onChatSearch(this.value)">
+                        </div>
+                    </div>
+                    <div class="chat-channels-scroll" id="chat-channels-list-container"></div>
+                </div>
+
+                <!-- Main Chat Area -->
+                <div class="chat-main-area" id="chat-main-area-content">
+                    ${activeChannel ? `
+                        <div class="chat-header">
+                            <div class="chat-header-title-box">
+                                <div class="chat-channel-avatar ${activeChannel.channel_type === 'group' ? 'group-avatar' : (activeChannel.displayRole === 'admin' ? 'supervisor-avatar' : 'coach-avatar')}">
+                                    ${activeChannel.channel_type === 'group' ? icon('users', {size:22}) : (activeChannel.displayRole === 'admin' ? icon('graduationCap', {size:22}) : icon('user', {size:22}))}
+                                </div>
+                                <div class="chat-header-details">
+                                    <h3>${escapeHtml(activeChannel.displayName || activeChannel.name)}</h3>
+                                    <p>
+                                        <span class="chat-online-dot"></span>
+                                        ${escapeHtml(activeChannel.description || 'متاح للتوجيه والملاحظات الإشرافية المباشرة')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="chat-header-actions">
+                                <button class="btn-sm btn-secondary" onclick="window.App.switchChatChannel(${activeChannel.id})" title="تحديث المحادثة">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                    تحديث
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="chat-messages-scroll" id="chat-messages-container"></div>
+
+                        <div class="chat-input-bar" id="chat-input-bar-container"></div>
+                    ` : `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted); gap:1rem;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            <p>يرجى اختيار قناة محادثة لبدء التواصل الإشرافي</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+
+        renderChatSidebarChannels();
+        if (activeChannel) {
+            renderChatMessagesOnly();
+            renderChatInputArea();
+            scrollChatToBottom();
+        }
+    }
+
+    function renderChatSidebarChannels() {
+        const listContainer = document.getElementById('chat-channels-list-container');
+        if (!listContainer) return;
+
+        let channels = appState.chatState.channels || [];
+        if (appState.chatState.searchQuery) {
+            const q = appState.chatState.searchQuery.toLowerCase();
+            channels = channels.filter(c => (c.displayName && c.displayName.toLowerCase().includes(q)) || c.name.toLowerCase().includes(q) || (c.last_message && c.last_message.toLowerCase().includes(q)));
+        }
+
+        const groupChannels = channels.filter(c => c.channel_type === 'group');
+        const directChannels = channels.filter(c => c.channel_type === 'direct');
+
+        const renderChannelItem = (ch) => {
+            const isActive = ch.id === appState.chatState.activeChannelId;
+            const channelTitle = ch.displayName || ch.name;
+            const avatarClass = ch.channel_type === 'group' ? 'group-avatar' : (ch.displayRole === 'admin' ? 'supervisor-avatar' : 'coach-avatar');
+            const avatarIcon = ch.channel_type === 'group' ? icon('users', {size:20}) : (ch.displayRole === 'admin' ? icon('graduationCap', {size:20}) : icon('user', {size:20}));
+            return `
+                <div class="chat-channel-item ${isActive ? 'active' : ''}" onclick="window.App.switchChatChannel(${ch.id})">
+                    <div class="chat-channel-avatar-wrap">
+                        <div class="chat-channel-avatar ${avatarClass}">
+                            ${avatarIcon}
+                        </div>
+                    </div>
+                    <div class="chat-channel-info">
+                        <div class="chat-channel-top-row">
+                            <span class="chat-channel-name">${escapeHtml(channelTitle)}</span>
+                            <span class="chat-channel-time">${formatChatTime(ch.last_message_time)}</span>
+                        </div>
+                        <div class="chat-channel-bottom-row">
+                            <span class="chat-channel-snippet">${escapeHtml(ch.last_message || 'لا توجد رسائل سابقة')}</span>
+                            ${(ch.unread_count || ch.unreadCount) > 0 ? `<span class="chat-unread-badge">${ch.unread_count || ch.unreadCount}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        listContainer.innerHTML = `
+            ${groupChannels.length > 0 ? `
+                <div class="chat-channels-section-label">ديوان الزمالة والمجموعات</div>
+                ${groupChannels.map(renderChannelItem).join('')}
+            ` : ''}
+
+            ${directChannels.length > 0 ? `
+                <div class="chat-channels-section-label" style="margin-top:0.75rem;">قنوات التوجيه والإشراف الفردي</div>
+                ${directChannels.map(renderChannelItem).join('')}
+            ` : ''}
+        `;
+    }
+
+    function renderChatMessagesOnly() {
+        const container = document.getElementById('chat-messages-container');
+        if (!container) return;
+
+        const messages = appState.chatState.messages || [];
+        if (messages.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:3rem 1rem; color:var(--text-muted);">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:0.75rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <p style="font-size:0.92rem; margin:0;">لا توجد رسائل سابقة في هذه المحادثة بعد.</p>
+                    <small>ابدأ بطرح استفسارك الإشرافي أو إرفاق التسجيل الصوتي والملاحظات الميدانية.</small>
+                </div>
+            `;
+            return;
+        }
+
+        const isUserSupervisor = appState.currentRole === 'supervisor';
+        const currentUserId = (window.ApiClient && window.ApiClient.getUser())
+            ? window.ApiClient.getUser().id
+            : (isUserSupervisor ? 1 : 2);
+
+        container.innerHTML = `
+            <div class="chat-date-separator">
+                <span>سجل المحادثات الموثقة</span>
+            </div>
+            ${messages.map(msg => {
+                const msgSenderId = Number(msg.sender_id || msg.senderId);
+                const isOutgoing = msgSenderId === currentUserId;
+                const msgSenderRole = msg.sender_role || msg.senderRole || 'coach';
+                const msgSenderName = msg.sender_name || msg.senderName || (msgSenderRole === 'admin' ? 'الماستر كوتش عبدالكريم الخليفي' : 'كوتش مشارك');
+                const msgType = msg.message_type || msg.messageType || 'text';
+                const mediaUrl = msg.media_url || msg.mediaUrl || '';
+                const msgContent = msg.content || '';
+                const msgCreatedAt = msg.created_at || msg.createdAt || '';
+                const mediaMeta = msg.media_meta || msg.mediaMeta;
+
+                let mediaHtml = '';
+                if (msgType === 'audio') {
+                    const durSec = (mediaMeta && mediaMeta.durationSeconds) || 0;
+                    const durText = durSec > 0 ? `${Math.floor(durSec / 60)}:${String(durSec % 60).padStart(2, '0')}` : 'تسجيل صوتي إشرافي';
+                    mediaHtml = `
+                        <div class="chat-audio-player">
+                            <button class="audio-play-btn" id="audio-play-btn-${msg.id}" onclick="window.App.playChatAudio(${msg.id}, '${mediaUrl}')" title="تشغيل التسجيل الصوتي">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </button>
+                            <div class="audio-waveform-wrap">
+                                <div class="audio-progress-bar" onclick="window.App.seekChatAudio(event, ${msg.id}, '${mediaUrl}')" title="انقر للتنقل في التسجيل">
+                                    <div class="audio-progress-fill" id="audio-progress-fill-${msg.id}"></div>
+                                </div>
+                                <div class="audio-time-row">
+                                    <span id="audio-time-${msg.id}">${durText}</span>
+                                    <span>${icon('mic', {size:14})}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (msgType === 'image') {
+                    mediaHtml = `
+                        <div class="chat-image-wrap" onclick="window.App.openChatImageLightbox('${encodeURI(mediaUrl)}', ${msg.id})">
+                            <img src="${encodeURI(mediaUrl)}" alt="${escapeHtml(msgContent)}" class="chat-image-preview">
+                        </div>
+                    `;
+                } else if (msgType === 'file') {
+                    const fileSize = mediaMeta && mediaMeta.sizeBytes ? `${Math.round(mediaMeta.sizeBytes / 1024)} كيلوبايت` : 'مستند معتمد للتدقيق والمطالعة';
+                    mediaHtml = `
+                        <div class="chat-file-card">
+                            <div class="chat-file-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            </div>
+                            <div class="chat-file-details">
+                                <div class="chat-file-title">${escapeHtml(msgContent || 'مستند إشرافي مرفق')}</div>
+                                <div class="chat-file-meta">${fileSize}</div>
+                            </div>
+                            <a href="${mediaUrl}" download target="_blank" class="chat-file-download-btn" title="تحميل الملف">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            </a>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="chat-message-row ${isOutgoing ? 'outgoing' : 'incoming'}">
+                        <div class="chat-msg-avatar" style="background:${msgSenderRole === 'admin' ? 'linear-gradient(135deg, #0B1B3D, #1D4ED8)' : 'linear-gradient(135deg, #059669, #10B981)'}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:0.85rem;">
+                            ${msgSenderRole === 'admin' ? 'م.ك' : 'ك.'}
+                        </div>
+                        <div class="chat-msg-content-wrap">
+                            <div class="chat-msg-sender-meta">
+                                <span class="chat-msg-sender-name">${escapeHtml(msgSenderName)}</span>
+                                <span class="chat-msg-sender-badge ${msgSenderRole === 'admin' ? 'admin-badge' : 'coach-badge'}">
+                                    ${msgSenderRole === 'admin' ? 'الماستر كوتش المشرف' : 'كوتش مشارك'}
+                                </span>
+                            </div>
+                            <div class="chat-bubble">
+                                ${mediaHtml}
+                                ${msgContent && msgType !== 'file' ? `<div style="margin-top:${mediaHtml ? '0.5rem' : '0'};">${escapeHtml(msgContent)}</div>` : ''}
+                                <span class="chat-bubble-time">${formatChatTime(msgCreatedAt)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        `;
+    }
+
+    function renderChatInputArea() {
+        const container = document.getElementById('chat-input-bar-container');
+        if (!container) return;
+
+        if (appState.chatState.isRecording) {
+            container.innerHTML = `
+                <div class="chat-recording-banner">
+                    <div style="display:flex; align-items:center;">
+                        <span class="recording-dot"></span>
+                        <span style="margin-right:0.5rem;">جارٍ تسجيل رسالة صوتية إشرافية...</span>
+                        <span class="recording-timer" id="chat-recording-timer" style="margin-right:0.75rem;">00:00</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <button class="btn-sm btn-secondary" onclick="window.App.cancelChatVoiceRecording()" style="color:#DC2626; border-color:#FCA5A5;" title="إلغاء التسجيل">
+                            ${icon('close', {size:13, style:'margin-left:3px;'})} إلغاء
+                        </button>
+                        <button class="btn-sm btn-primary" onclick="window.App.finishChatVoiceRecording()" style="background:#059669; border-color:#059669;" title="إرسال الرسالة الصوتية">
+                            ${icon('check', {size:13, style:'margin-left:3px;'})} إرسال الصوتية
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <input type="file" id="chat-file-input" style="display:none;" onchange="window.App.onChatFileSelected(event)">
+                <button class="chat-attach-btn" title="إرفاق ملف أو صورة أو تسجيل" onclick="document.getElementById('chat-file-input').click()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                </button>
+                <button class="chat-record-btn" title="تسجيل رسالة صوتية إشرافية" onclick="window.App.toggleChatVoiceRecording()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                </button>
+                <div class="chat-input-field-wrap">
+                    <textarea id="chat-msg-input" class="chat-textarea" placeholder="اكتب استفسارك الإشرافي أو توجيهك المهني هنا... (Enter للإرسال، Shift+Enter لسطر جديد)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.App.sendChatMessage();}"></textarea>
+                </div>
+                <button class="chat-send-btn" title="إرسال" onclick="window.App.sendChatMessage()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            `;
+        }
+    }
+
+    function scrollChatToBottom() {
+        const container = document.getElementById('chat-messages-container');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    function formatChatTime(dateStr) {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+        } catch (_) {
+            return '';
+        }
+    }
+
+    async function sendChatMessage() {
+        const inputEl = document.getElementById('chat-msg-input');
+        if (!inputEl) return;
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        const activeChId = appState.chatState.activeChannelId;
+        if (!activeChId) return;
+
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+
+        if (window.ApiClient && window.ApiClient.token) {
+            try {
+                const res = await window.ApiClient.sendChatMessage(activeChId, {
+                    messageType: 'text',
+                    content: text
+                });
+                if (res && res.message) {
+                    if (!appState.chatState.messages.some(m => m.id === res.message.id)) {
+                        appState.chatState.messages.push(res.message);
+                    }
+                    renderChatMessagesOnly();
+                    scrollChatToBottom();
+                    const ch = appState.chatState.channels.find(c => c.id === activeChId);
+                    if (ch) {
+                        ch.last_message = text;
+                        ch.last_message_time = new Date().toISOString();
+                    }
+                    renderChatSidebarChannels();
+                    return;
+                }
+            } catch (err) {
+                console.error('Failed to send text message:', err);
+                showToast('فشل إرسال الرسالة: ' + err.message, 'warn');
+            }
+        }
+
+        // Mock offline fallback
+        const mockMsg = {
+            id: Date.now(),
+            channel_id: activeChId,
+            sender_id: appState.currentRole === 'supervisor' ? 1 : 2,
+            sender_name: appState.currentRole === 'supervisor' ? 'الماستر كوتش عبدالكريم الخليفي' : appState.data.metadata.candidate.name,
+            sender_role: appState.currentRole === 'supervisor' ? 'admin' : 'coach',
+            message_type: 'text',
+            content: text,
+            created_at: new Date().toISOString()
+        };
+        appState.chatState.messages.push(mockMsg);
+        renderChatMessagesOnly();
+        scrollChatToBottom();
+        const ch = appState.chatState.channels.find(c => c.id === activeChId);
+        if (ch) {
+            ch.last_message = text;
+            ch.last_message_time = new Date().toISOString();
+        }
+        renderChatSidebarChannels();
+    }
+
+    async function onChatFileSelected(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        if (file.size > 50 * 1024 * 1024) {
+            showToast('حجم الملف يتجاوز الحد الأقصى المسموح به (50 ميجابايت)', 'warn');
+            event.target.value = '';
+            return;
+        }
+
+        showToast(`جارٍ رفع المرفق (${file.name})...`, 'info');
+        const activeChId = appState.chatState.activeChannelId;
+        if (!activeChId) return;
+
+        if (window.ApiClient && window.ApiClient.token) {
+            try {
+                const uploadRes = await window.ApiClient.uploadChatMedia(file);
+                if (uploadRes && uploadRes.fileUrl) {
+                    const sendRes = await window.ApiClient.sendChatMessage(activeChId, {
+                        messageType: uploadRes.type,
+                        content: uploadRes.originalName || file.name,
+                        mediaUrl: uploadRes.fileUrl,
+                        mediaMeta: {
+                            fileName: uploadRes.fileName,
+                            originalName: uploadRes.originalName,
+                            sizeBytes: uploadRes.sizeBytes,
+                            mimeType: uploadRes.mimeType
+                        }
+                    });
+                    if (sendRes && sendRes.message) {
+                        if (!appState.chatState.messages.some(m => m.id === sendRes.message.id)) {
+                            appState.chatState.messages.push(sendRes.message);
+                        }
+                        renderChatMessagesOnly();
+                        scrollChatToBottom();
+                        const ch = appState.chatState.channels.find(c => c.id === activeChId);
+                        if (ch) {
+                            ch.last_message = uploadRes.originalName || file.name;
+                            ch.last_message_time = new Date().toISOString();
+                        }
+                        renderChatSidebarChannels();
+                        showToast('تم إرسال الملف المرفق بنجاح', 'success');
+                        event.target.value = '';
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error('Chat file upload failed:', err);
+                showToast('فشل رفع الملف: ' + err.message, 'warn');
+            }
+        } else {
+            // Local fallback
+            const isImg = file.type.startsWith('image/');
+            const isAud = file.type.startsWith('audio/');
+            const mockMsg = {
+                id: Date.now(),
+                channel_id: activeChId,
+                sender_id: appState.currentRole === 'supervisor' ? 1 : 2,
+                sender_name: appState.currentRole === 'supervisor' ? 'الماستر كوتش عبدالكريم الخليفي' : appState.data.metadata.candidate.name,
+                sender_role: appState.currentRole === 'supervisor' ? 'admin' : 'coach',
+                message_type: isImg ? 'image' : (isAud ? 'audio' : 'file'),
+                content: file.name,
+                media_url: isImg ? 'assets/images/logo.png' : '/uploads/sample_supervisor_guidance.mp3',
+                media_meta: JSON.stringify({ fileName: file.name, sizeBytes: file.size }),
+                created_at: new Date().toISOString()
+            };
+            appState.chatState.messages.push(mockMsg);
+            renderChatMessagesOnly();
+            scrollChatToBottom();
+            showToast('تم إيداع الملف في المحادثة بنجاح', 'success');
+            event.target.value = '';
+        }
+    }
+
+    function toggleChatVoiceRecording() {
+        if (appState.chatState.isRecording) {
+            finishChatVoiceRecording();
+        } else {
+            startChatVoiceRecording();
+        }
+    }
+
+    async function startChatVoiceRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            simulateVoiceNoteFallback();
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            appState.chatState.mediaStream = stream;
+
+            const mimeCandidates = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/ogg;codecs=opus',
+                'audio/mp4',
+                'audio/aac'
+            ];
+            let options = {};
+            if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+                const supported = mimeCandidates.find(type => MediaRecorder.isTypeSupported(type));
+                if (supported) options = { mimeType: supported };
+            }
+
+            const mediaRecorder = new MediaRecorder(stream, options);
+            appState.chatState.mediaRecorder = mediaRecorder;
+            appState.chatState.audioChunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) {
+                    appState.chatState.audioChunks.push(e.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                if (appState.chatState.isCancelledVoice) {
+                    appState.chatState.isCancelledVoice = false;
+                    return;
+                }
+                const mime = mediaRecorder.mimeType || 'audio/webm';
+                const audioBlob = new Blob(appState.chatState.audioChunks, { type: mime });
+                await handleSendAudioVoiceNote(audioBlob);
+            };
+
+            mediaRecorder.start();
+            appState.chatState.isRecording = true;
+            appState.chatState.recordStartTime = Date.now();
+            renderChatInputArea();
+
+            if (appState.chatState.recordingTimerId) clearInterval(appState.chatState.recordingTimerId);
+            appState.chatState.recordingTimerId = setInterval(() => {
+                const timerEl = document.getElementById('chat-recording-timer');
+                if (timerEl && appState.chatState.recordStartTime) {
+                    const elapsedSec = Math.floor((Date.now() - appState.chatState.recordStartTime) / 1000);
+                    const mins = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+                    const secs = String(elapsedSec % 60).padStart(2, '0');
+                    timerEl.textContent = `${mins}:${secs}`;
+                }
+            }, 500);
+
+        } catch (err) {
+            console.warn('Microphone access denied or unavailable:', err);
+            showToast('لم يتم العثور على ميكروفون متاح - سيتم توظيف تسجيل التوجيه الإشرافي المعتمد', 'info');
+            simulateVoiceNoteFallback();
+        }
+    }
+
+    function cancelChatVoiceRecording() {
+        appState.chatState.isCancelledVoice = true;
+        if (appState.chatState.recordingTimerId) clearInterval(appState.chatState.recordingTimerId);
+        if (appState.chatState.mediaRecorder && appState.chatState.mediaRecorder.state !== 'inactive') {
+            appState.chatState.mediaRecorder.stop();
+        }
+        if (appState.chatState.mediaStream) {
+            appState.chatState.mediaStream.getTracks().forEach(t => t.stop());
+        }
+        appState.chatState.isRecording = false;
+        renderChatInputArea();
+    }
+
+    function finishChatVoiceRecording() {
+        if (appState.chatState.recordingTimerId) clearInterval(appState.chatState.recordingTimerId);
+        if (appState.chatState.mediaRecorder && appState.chatState.mediaRecorder.state !== 'inactive') {
+            appState.chatState.mediaRecorder.stop();
+        }
+        if (appState.chatState.mediaStream) {
+            appState.chatState.mediaStream.getTracks().forEach(t => t.stop());
+        }
+        appState.chatState.isRecording = false;
+        renderChatInputArea();
+    }
+
+    async function handleSendAudioVoiceNote(blob) {
+        showToast('جارٍ رفع الملاحظة الصوتية ومعالجتها...', 'info');
+        const activeChId = appState.chatState.activeChannelId;
+        if (!activeChId) return;
+
+        const mime = blob.type || 'audio/webm';
+        let ext = '.webm';
+        if (mime.includes('mp4') || mime.includes('aac')) ext = '.m4a';
+        else if (mime.includes('ogg')) ext = '.ogg';
+        else if (mime.includes('wav')) ext = '.wav';
+        else if (mime.includes('mp3') || mime.includes('mpeg')) ext = '.mp3';
+
+        const durationSeconds = appState.chatState.recordStartTime 
+            ? Math.max(1, Math.round((Date.now() - appState.chatState.recordStartTime) / 1000))
+            : 0;
+
+        const audioFile = new File([blob], `voice_note_${Date.now()}${ext}`, { type: mime });
+
+        if (window.ApiClient && window.ApiClient.token) {
+            try {
+                const uploadRes = await window.ApiClient.uploadChatMedia(audioFile);
+                if (uploadRes && uploadRes.fileUrl) {
+                    const sendRes = await window.ApiClient.sendChatMessage(activeChId, {
+                        messageType: 'audio',
+                        content: 'تسجيل صوتي إشرافي مباشر',
+                        mediaUrl: uploadRes.fileUrl,
+                        mediaMeta: {
+                            fileName: uploadRes.fileName,
+                            sizeBytes: uploadRes.sizeBytes,
+                            mimeType: uploadRes.mimeType,
+                            durationSeconds
+                        }
+                    });
+                    if (sendRes && sendRes.message) {
+                        if (!appState.chatState.messages.some(m => m.id === sendRes.message.id)) {
+                            appState.chatState.messages.push(sendRes.message);
+                        }
+                        renderChatMessagesOnly();
+                        scrollChatToBottom();
+                        const ch = appState.chatState.channels.find(c => c.id === activeChId);
+                        if (ch) {
+                            ch.last_message = 'تسجيل صوتي إشرافي مباشر';
+                            ch.last_message_time = new Date().toISOString();
+                        }
+                        renderChatSidebarChannels();
+                        showToast('تم إرسال التسجيل الصوتي بنجاح', 'success');
+                        appState.chatState.recordStartTime = null;
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to upload/send audio note:', err);
+                showToast('فشل رفع التسجيل الصوتي: ' + err.message, 'warn');
+            }
+        }
+    }
+
+    async function simulateVoiceNoteFallback() {
+        showToast('جارٍ إرسال تسجيل صوتي إشرافي معتمد...', 'info');
+        const activeChId = appState.chatState.activeChannelId;
+        if (!activeChId) return;
+
+        const voiceMsgData = {
+            messageType: 'audio',
+            content: 'تسجيل صوتي إشرافي: ملاحظات حول الكفاية C101 وتطبيق نموذج التمكين',
+            mediaUrl: '/uploads/sample_supervisor_guidance.mp3',
+            mediaMeta: {
+                fileName: 'sample_supervisor_guidance.mp3',
+                durationSeconds: 15,
+                mimeType: 'audio/mp3',
+                sizeBytes: 256000
+            }
+        };
+
+        if (window.ApiClient && window.ApiClient.token) {
+            try {
+                const res = await window.ApiClient.sendChatMessage(activeChId, voiceMsgData);
+                if (res && res.message) {
+                    appState.chatState.messages.push(res.message);
+                    renderChatMessagesOnly();
+                    scrollChatToBottom();
+                    showToast('تم إرسال التسجيل الصوتي بنجاح', 'success');
+                    return;
+                }
+            } catch (e) {
+                console.warn('Voice send error:', e);
+            }
+        }
+
+        const mockMsg = {
+            id: Date.now(),
+            channel_id: activeChId,
+            sender_id: appState.currentRole === 'supervisor' ? 1 : 2,
+            sender_name: appState.currentRole === 'supervisor' ? 'الماستر كوتش عبدالكريم الخليفي' : appState.data.metadata.candidate.name,
+            sender_role: appState.currentRole === 'supervisor' ? 'admin' : 'coach',
+            message_type: 'audio',
+            content: voiceMsgData.content,
+            media_url: voiceMsgData.mediaUrl,
+            media_meta: JSON.stringify(voiceMsgData.mediaMeta),
+            created_at: new Date().toISOString()
+        };
+        appState.chatState.messages.push(mockMsg);
+        renderChatMessagesOnly();
+        scrollChatToBottom();
+        showToast('تم حفظ التسجيل الصوتي بنجاح', 'success');
+    }
+
+    function playChatAudio(msgId, mediaUrl) {
+        if (!appState.chatState.audioElement) {
+            appState.chatState.audioElement = new Audio();
+        }
+        const audio = appState.chatState.audioElement;
+
+        // If clicking on the currently active audio
+        if (appState.chatState.currentPlayingAudioMsgId === msgId) {
+            if (!audio.paused) {
+                audio.pause();
+                const cur = audio.currentTime || 0;
+                const dur = audio.duration || 1;
+                updateChatAudioButton(msgId, false, (cur / dur) * 100, cur, dur);
+                return;
+            } else {
+                // Resume from where it was paused
+                audio.play().catch(e => {
+                    console.warn('Audio resume error:', e);
+                });
+                const cur = audio.currentTime || 0;
+                const dur = audio.duration || 1;
+                updateChatAudioButton(msgId, true, (cur / dur) * 100, cur, dur);
+                return;
+            }
+        }
+
+        // Switching from another audio track
+        if (appState.chatState.currentPlayingAudioMsgId && appState.chatState.currentPlayingAudioMsgId !== msgId) {
+            updateChatAudioButton(appState.chatState.currentPlayingAudioMsgId, false, 0);
+        }
+
+        appState.chatState.currentPlayingAudioMsgId = msgId;
+        audio.src = mediaUrl;
+        audio.currentTime = 0;
+        audio.play().catch(e => {
+            console.warn('Audio play error:', e);
+            showToast('تعذر تشغيل الملف الصوتي', 'warn');
+            appState.chatState.currentPlayingAudioMsgId = null;
+            updateChatAudioButton(msgId, false, 0);
+        });
+
+        updateChatAudioButton(msgId, true, 0);
+
+        audio.ontimeupdate = () => {
+            if (audio.duration && audio.duration > 0) {
+                const pct = (audio.currentTime / audio.duration) * 100;
+                updateChatAudioButton(msgId, !audio.paused, pct, audio.currentTime, audio.duration);
+            }
+        };
+
+        audio.onended = () => {
+            appState.chatState.currentPlayingAudioMsgId = null;
+            updateChatAudioButton(msgId, false, 0);
+        };
+    }
+
+    function seekChatAudio(event, msgId, mediaUrl) {
+        if (event && event.stopPropagation) event.stopPropagation();
+        const bar = event ? event.currentTarget : null;
+        if (!bar) return;
+        const rect = bar.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const pct = Math.max(0, Math.min(1, clickX / rect.width));
+
+        if (!appState.chatState.audioElement) {
+            appState.chatState.audioElement = new Audio();
+        }
+        const audio = appState.chatState.audioElement;
+
+        const isCurrent = appState.chatState.currentPlayingAudioMsgId === msgId && audio.src && audio.src.includes(encodeURI(mediaUrl).split('/').pop());
+        if (!isCurrent) {
+            playChatAudio(msgId, mediaUrl);
+            const applySeek = () => {
+                if (audio.duration && audio.duration > 0) {
+                    audio.currentTime = pct * audio.duration;
+                    updateChatAudioButton(msgId, !audio.paused, pct * 100, audio.currentTime, audio.duration);
+                }
+                audio.removeEventListener('loadedmetadata', applySeek);
+            };
+            if (audio.duration && audio.duration > 0) {
+                applySeek();
+            } else {
+                audio.addEventListener('loadedmetadata', applySeek);
+            }
+        } else if (audio.duration && audio.duration > 0) {
+            audio.currentTime = pct * audio.duration;
+            updateChatAudioButton(msgId, !audio.paused, pct * 100, audio.currentTime, audio.duration);
+        }
+    }
+
+    function updateChatAudioButton(msgId, isPlaying, progressPct = 0, currentSec = 0, durationSec = 0) {
+        const btn = document.getElementById(`audio-play-btn-${msgId}`);
+        const fill = document.getElementById(`audio-progress-fill-${msgId}`);
+        const timeEl = document.getElementById(`audio-time-${msgId}`);
+
+        if (btn) {
+            btn.innerHTML = isPlaying
+                ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`
+                : `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+        }
+        if (fill) {
+            fill.style.width = `${progressPct}%`;
+        }
+        if (timeEl && durationSec > 0) {
+            const formatTime = (s) => {
+                const m = Math.floor(s / 60);
+                const sec = Math.floor(s % 60);
+                return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+            };
+            timeEl.textContent = `${formatTime(currentSec)} / ${formatTime(durationSec)}`;
+        }
+    }
+
+    function openChatImageLightbox(imageUrl, msgIdOrTitle = 'معاينة المرفق الصوري') {
+        const modal = DOM.chatMediaModal || document.getElementById('chat-media-modal');
+        if (!modal) return;
+
+        let title = 'معاينة المرفق الصوري';
+        if (typeof msgIdOrTitle === 'number') {
+            const m = (appState.chatState.messages || []).find(x => x.id === msgIdOrTitle);
+            if (m && m.content) title = m.content;
+        } else if (typeof msgIdOrTitle === 'string' && msgIdOrTitle.trim()) {
+            title = msgIdOrTitle.trim();
+        }
+        const safeTitle = escapeHtml(title);
+
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width:850px; background:rgba(15, 23, 42, 0.95); border-color:#334155; color:#fff;">
+                <div class="modal-header" style="border-bottom-color:#334155;">
+                    <div style="display:flex; align-items:center; gap:0.6rem;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <h3 style="color:#fff; font-size:1.05rem; margin:0;">${safeTitle}</h3>
+                    </div>
+                    <button class="btn-close-modal" onclick="window.App.closeAllModals()" style="color:#94A3B8;">×</button>
+                </div>
+                <div class="modal-body" style="padding:1.5rem; text-align:center;">
+                    <img src="${encodeURI(imageUrl)}" alt="${safeTitle}" style="max-width:100%; max-height:75vh; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5); object-fit:contain;">
+                </div>
+                <div class="modal-footer" style="border-top-color:#334155; display:flex; justify-content:space-between;">
+                    <a href="${encodeURI(imageUrl)}" download target="_blank" class="btn-sm btn-secondary" style="background:#1E293B; color:#38BDF8; border-color:#334155; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        تحميل الصورة الأصلية
+                    </a>
+                    <button class="btn-primary" onclick="window.App.closeAllModals()">إغلاق المعاينة</button>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+    }
+
+    let chatSearchDebounceTimer = null;
+    function onChatSearch(query) {
+        appState.chatState.searchQuery = query;
+        renderChatSidebarChannels();
+        if (chatSearchDebounceTimer) clearTimeout(chatSearchDebounceTimer);
+        chatSearchDebounceTimer = setTimeout(() => {
+            if (appState.chatState.activeChannelId) {
+                loadChatMessages(appState.chatState.activeChannelId).then(() => {
+                    renderChatMessagesOnly();
+                });
+            }
+        }, 200);
+    }
+
+    function initChatStream() {
+        if (!window.ApiClient || !window.ApiClient.token) return;
+
+        // If an existing stream exists, close it to ensure we connect with current user session
+        if (appState.chatState.eventSource) {
+            try { appState.chatState.eventSource.close(); } catch (_) {}
+            appState.chatState.eventSource = null;
+        }
+
+        try {
+            const es = window.ApiClient.createChatStream(
+                (data) => {
+                    if (data && data.type === 'new_message' && data.message) {
+                        const msg = data.message;
+                        const channelId = Number(data.channelId || msg.channel_id || msg.channelId);
+                        const ch = (appState.chatState.channels || []).find(c => c.id === channelId);
+
+                        let previewText = msg.content || '';
+                        const mType = msg.message_type || msg.messageType;
+                        if (mType === 'audio') {
+                            previewText = previewText || 'تسجيل صوتي إشرافي مباشر';
+                        } else if (mType === 'image') {
+                            previewText = previewText || 'صورة ومخطط إشرافي';
+                        } else if (mType === 'file') {
+                            previewText = previewText || 'مستند معتمد مرفق';
+                        }
+
+                        if (channelId === appState.chatState.activeChannelId) {
+                            if (!appState.chatState.messages.some(m => m.id === msg.id)) {
+                                appState.chatState.messages.push(msg);
+                                renderChatMessagesOnly();
+                                scrollChatToBottom();
+                            }
+                            if (ch) {
+                                ch.last_message = previewText;
+                                ch.last_message_time = msg.created_at || msg.createdAt || new Date().toISOString();
+                                ch.unread_count = 0;
+                                ch.unreadCount = 0;
+                            }
+                            if (window.ApiClient && window.ApiClient.token) {
+                                window.ApiClient.markChatRead(channelId).catch(() => {});
+                            }
+                        } else {
+                            if (ch) {
+                                ch.unread_count = (ch.unread_count || ch.unreadCount || 0) + 1;
+                                ch.unreadCount = ch.unread_count;
+                                ch.last_message = previewText;
+                                ch.last_message_time = msg.created_at || msg.createdAt || new Date().toISOString();
+                                updateChatNavBadge();
+                            }
+                        }
+                        renderChatSidebarChannels();
+                    }
+                },
+                (err) => {
+                    console.warn('SSE connection notice:', err);
+                }
+            );
+            appState.chatState.eventSource = es;
+        } catch (e) {
+            console.warn('SSE init failed:', e);
+        }
+    }
+
+    let lastActiveElementBeforeModal = null;
+
+    function openModalWithFocus(modalEl) {
+        if (!modalEl) return;
+        lastActiveElementBeforeModal = document.activeElement;
+        modalEl.classList.add('active');
+        modalEl.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        
+        setTimeout(() => {
+            const focusable = modalEl.querySelector('input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button.btn-primary, button.btn-close-modal');
+            if (focusable && typeof focusable.focus === 'function') {
+                focusable.focus();
+            }
+        }, 60);
+    }
+
     // Close All Modals
     function closeAllModals() {
         document.querySelectorAll('.modal-overlay').forEach(modal => {
             modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
         });
+        document.body.style.overflow = '';
         appState.activeTask = null;
+        if (lastActiveElementBeforeModal && typeof lastActiveElementBeforeModal.focus === 'function') {
+            lastActiveElementBeforeModal.focus();
+            lastActiveElementBeforeModal = null;
+        }
+    }
+
+    // Custom Accessible Confirmation & Alert Dialog
+    function confirmDialog(options) {
+        options = options || {};
+        const title = options.title || 'تأكيد الإجراء';
+        const message = options.message || 'هل أنت متأكد من المتابعة؟';
+        const confirmText = options.confirmText || 'تأكيد';
+        const cancelText = options.cancelText || 'إلغاء';
+        const danger = options.danger !== false;
+
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirm-modal') || DOM.genericModal;
+            if (!modal) {
+                resolve(window.confirm(message));
+                return;
+            }
+
+            const prevActive = document.activeElement;
+            modal.innerHTML = `
+                <div class="confirm-dialog-card" role="document">
+                    <div class="confirm-dialog-header ${danger ? 'danger' : 'info'}">
+                        <span class="confirm-dialog-icon">${icon(danger ? 'alertTriangle' : 'helpCircle', { size: 22 })}</span>
+                        <h3 id="confirm-modal-title" style="margin:0; font-size:1.1rem; font-weight:800;">${escapeHtml(title)}</h3>
+                    </div>
+                    <div class="confirm-dialog-body" id="confirm-modal-desc">
+                        <p style="margin:0;">${escapeHtml(message)}</p>
+                    </div>
+                    <div class="confirm-dialog-footer">
+                        <button type="button" id="confirm-dialog-cancel-btn" class="btn btn-secondary btn-sm">${escapeHtml(cancelText)}</button>
+                        <button type="button" id="confirm-dialog-submit-btn" class="btn ${danger ? 'btn-danger' : 'btn-primary'} btn-sm">${escapeHtml(confirmText)}</button>
+                    </div>
+                </div>
+            `;
+
+            const cleanup = () => {
+                modal.classList.remove('active');
+                modal.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+                document.removeEventListener('keydown', handleKeyDown);
+                if (prevActive && typeof prevActive.focus === 'function') {
+                    prevActive.focus();
+                }
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    cleanup();
+                    resolve(false);
+                } else if (e.key === 'Tab') {
+                    const focusables = modal.querySelectorAll('button:not([disabled])');
+                    if (focusables.length >= 2) {
+                        const first = focusables[0];
+                        const last = focusables[focusables.length - 1];
+                        if (e.shiftKey && document.activeElement === first) {
+                            e.preventDefault();
+                            last.focus();
+                        } else if (!e.shiftKey && document.activeElement === last) {
+                            e.preventDefault();
+                            first.focus();
+                        }
+                    }
+                }
+            };
+
+            document.addEventListener('keydown', handleKeyDown);
+
+            const cancelBtn = modal.querySelector('#confirm-dialog-cancel-btn');
+            const submitBtn = modal.querySelector('#confirm-dialog-submit-btn');
+
+            if (cancelBtn) {
+                cancelBtn.onclick = () => {
+                    cleanup();
+                    resolve(false);
+                };
+            }
+
+            if (submitBtn) {
+                submitBtn.onclick = () => {
+                    cleanup();
+                    resolve(true);
+                };
+            }
+
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            if (cancelBtn) cancelBtn.focus();
+        });
     }
 
     // Toast Notifications
@@ -3427,11 +7117,14 @@
         
         let iconSvg = '';
         if (type === 'success') {
-            iconSvg = `<span style="color:var(--status-emerald-light); font-size:1.2rem;">✓</span>`;
-        } else if (type === 'warn') {
-            iconSvg = `<span style="color:var(--status-amber); font-size:1.2rem;">⚠️</span>`;
+            iconSvg = icon('checkCircle', {size:18, style:'color:var(--status-emerald-light);'});
+        } else if (type === 'warn' || type === 'warning') {
+            iconSvg = icon('alertTriangle', {size:18, style:'color:var(--status-amber);'});
+        } else if (type === 'error' || type === 'danger') {
+            iconSvg = icon('shieldAlert', {size:18, style:'color:#DC2626;'});
+            toast.style.borderColor = '#F87171';
         } else {
-            iconSvg = `<span style="color:var(--brand-blue-light); font-size:1.2rem;">ℹ</span>`;
+            iconSvg = icon('info', {size:18, style:'color:var(--brand-blue-light);'});
         }
 
         toast.innerHTML = `
@@ -3451,12 +7144,30 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function escapeJsAttr(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '&quot;')
+            .replace(/\n/g, '\\n')
+            .replace(/\r/g, '');
     }
 
     // Export Public API to Window
     window.App = {
         init,
+        setViewMode,
+        scrollToSection,
+        toggleChatDrawer,
         switchTab,
         switchRubric,
         setCriterionLevel,
@@ -3478,6 +7189,8 @@
         filterSessionsByCase,
         openCaseModal,
         openInspectCompetencyModal,
+        openInspectDomain14Modal,
+        switchCompsViewMode,
         openExcellencePreview,
         toggleEthicsCheckpoint,
         toggleAudioPlayback,
@@ -3487,6 +7200,8 @@
         filterCompsByDomain,
         filterCompsByStatus,
         showToast,
+        confirmDialog,
+        openModalWithFocus,
         // Fullstack Auth & Admin Exports
         openAuthModal,
         switchAuthTab,
@@ -3494,12 +7209,59 @@
         handleQuickLogin,
         handleRegister,
         handleLogout,
+        switchAdminTab,
         switchAdminCoach,
         renderAdminDashboard,
         onRealFileSelected,
         issueGraduationAuditDecree,
         adminResetDemo,
-        adminExportBackup
+        adminExportBackup,
+        // Dynamic Certificate & Admin Handlers
+        openAddCertificateRowModal,
+        submitAddCertificateRow,
+        openEditCertificateRowModal,
+        submitEditCertificateRow,
+        deleteCertificateRow,
+        openEditCertificateMetaModal,
+        submitEditCertificateMeta,
+        resetCertificateRows,
+        openAddTaskModal,
+        submitAddTask,
+        openEditTaskModal,
+        submitEditTask,
+        deleteTask,
+        openAddCompetencyModal,
+        submitAddCompetency,
+        openEditCompetencyModal,
+        submitEditCompetency,
+        deleteCompetency,
+        openAddRubricCriterionModal,
+        submitAddRubricCriterion,
+        openEditRubricCriterionModal,
+        submitEditRubricCriterion,
+        deleteRubricCriterion,
+        saveAdminQuotas,
+        openAddCoachModal,
+        submitAddCoach,
+        openEditCoachModal,
+        submitEditCoach,
+        deleteCoach,
+        // Chat Hub Exports
+        loadChatChannels,
+        loadChatMessages,
+        switchChatChannel,
+        renderChatPanel,
+        sendChatMessage,
+        onChatFileSelected,
+        toggleChatVoiceRecording,
+        startChatVoiceRecording,
+        cancelChatVoiceRecording,
+        finishChatVoiceRecording,
+        playChatAudio,
+        seekChatAudio,
+        openChatImageLightbox,
+        onChatSearch,
+        initChatStream
     };
 
     // Auto-init on DOMContentLoaded

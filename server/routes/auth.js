@@ -205,6 +205,13 @@ router.post('/register', (req, res) => {
             insertEthics.run(coachId, cp.id, cp.title);
         });
 
+        // Initialize Chat Channels (Cohort group & direct supervisory channel)
+        try {
+            db.setupNewCoachChat(userRes.lastInsertRowid, coachId, name.trim());
+        } catch (chatErr) {
+            console.error('Error setting up chat for new coach:', chatErr);
+        }
+
         const token = jwt.sign(
             { id: userRes.lastInsertRowid, email: email.trim(), role: 'coach' },
             config.JWT_SECRET,

@@ -5,8 +5,9 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node tests/api_fullstack.test.js",
-    "test:all": "node tests/api_fullstack.test.js && (cd .. && node test_platform.js && node test_reactive_logic.js)"
+    "test": "node tests/api_fullstack.test.js && node tests/websocket.test.js",
+    "test:ws": "node tests/websocket.test.js",
+    "test:all": "node tests/api_fullstack.test.js && node tests/websocket.test.js && node tests/test_platform.mjs && node tests/test_reactive_logic.mjs"
   },
   "keywords": [
     "coaching",
@@ -24,6 +25,7 @@
     "cors": "^2.8.6",
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^2.4.0"
+    "multer": "^2.4.0",
+    "ws": "^8.22.0"
   }
 }

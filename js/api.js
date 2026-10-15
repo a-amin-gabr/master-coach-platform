@@ -337,6 +337,220 @@
         async exportBackup() {
             return this.request('/api/admin/export');
         }
+
+        // Chat & Supervisory Messaging
+        async getChatChannels() {
+            return this.request('/api/chat/channels');
+        }
+
+        async getChatMessages(channelId, params = {}) {
+            let q = '';
+            const queryParts = [];
+            if (params.after) queryParts.push(`after=${params.after}`);
+            if (params.limit) queryParts.push(`limit=${params.limit}`);
+            if (params.search) queryParts.push(`search=${encodeURIComponent(params.search)}`);
+            if (queryParts.length > 0) q = '?' + queryParts.join('&');
+            return this.request(`/api/chat/channels/${channelId}/messages${q}`);
+        }
+
+        async sendChatMessage(channelId, messageData) {
+            return this.request(`/api/chat/channels/${channelId}/messages`, {
+                method: 'POST',
+                json: messageData
+            });
+        }
+
+        async uploadChatMedia(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            return this.request('/api/chat/upload', {
+                method: 'POST',
+                body: formData
+            });
+        }
+
+        async markChatRead(channelId, messageId = null) {
+            return this.request(`/api/chat/channels/${channelId}/read`, {
+                method: 'POST',
+                json: { messageId }
+            });
+        }
+
+        async searchChatMessages(query) {
+            return this.request(`/api/chat/search?q=${encodeURIComponent(query)}`);
+        }
+
+        createChatStream(onMessage, onError) {
+            if (!this.token) return null;
+            if (typeof EventSource === 'undefined') return null;
+            try {
+                const url = `${this.baseUrl}/api/chat/stream?token=${encodeURIComponent(this.token)}`;
+                const es = new EventSource(url);
+                es.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (onMessage) onMessage(data);
+                    } catch (e) {
+                        console.error('SSE JSON parse error:', e);
+                    }
+                };
+                if (onError) {
+                    es.onerror = (e) => onError(e);
+                }
+                return es;
+            } catch (e) {
+                console.warn('Could not establish EventSource:', e);
+                return null;
+            }
+        }
+
+        // ==========================================
+        // Dynamic Certificate & Official Dossier API
+        // ==========================================
+        async getCertificateConfig(coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/admin/certificate-config${q}`);
+        }
+
+        async updateCertificateConfig(configData) {
+            return this.request('/api/admin/certificate-config', {
+                method: 'PUT',
+                json: configData
+            });
+        }
+
+        async addCertificateRow(rowData) {
+            return this.request('/api/admin/certificate-rows', {
+                method: 'POST',
+                json: rowData
+            });
+        }
+
+        async updateCertificateRow(rowId, rowData) {
+            return this.request(`/api/admin/certificate-rows/${rowId}`, {
+                method: 'PUT',
+                json: rowData
+            });
+        }
+
+        async deleteCertificateRow(rowId, coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/admin/certificate-rows/${rowId}${q}`, {
+                method: 'DELETE'
+            });
+        }
+
+        async resetCertificateRows(coachId) {
+            return this.request('/api/admin/certificate-rows/reset', {
+                method: 'POST',
+                json: { coachId }
+            });
+        }
+
+        // ==========================================
+        // Dynamic Tasks Bank API (Admin)
+        // ==========================================
+        async createAdminTask(taskData) {
+            return this.request('/api/admin/tasks', {
+                method: 'POST',
+                json: taskData
+            });
+        }
+
+        async updateAdminTask(taskId, taskData) {
+            return this.request(`/api/admin/tasks/${taskId}`, {
+                method: 'PUT',
+                json: taskData
+            });
+        }
+
+        async deleteAdminTask(taskId, coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/admin/tasks/${taskId}${q}`, {
+                method: 'DELETE'
+            });
+        }
+
+        // ==========================================
+        // Dynamic Competencies API (Admin)
+        // ==========================================
+        async createAdminCompetency(compData) {
+            return this.request('/api/admin/competencies', {
+                method: 'POST',
+                json: compData
+            });
+        }
+
+        async updateAdminCompetency(compId, compData) {
+            return this.request(`/api/admin/competencies/${compId}`, {
+                method: 'PUT',
+                json: compData
+            });
+        }
+
+        async deleteAdminCompetency(compId, coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/admin/competencies/${compId}${q}`, {
+                method: 'DELETE'
+            });
+        }
+
+        // ==========================================
+        // Dynamic Rubrics Criteria API (Admin)
+        // ==========================================
+        async createAdminRubricCriterion(critData) {
+            return this.request('/api/admin/rubrics/criteria', {
+                method: 'POST',
+                json: critData
+            });
+        }
+
+        async updateAdminRubricCriterion(critId, critData) {
+            return this.request(`/api/admin/rubrics/criteria/${critId}`, {
+                method: 'PUT',
+                json: critData
+            });
+        }
+
+        async deleteAdminRubricCriterion(critId, coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/admin/rubrics/criteria/${critId}${q}`, {
+                method: 'DELETE'
+            });
+        }
+
+        // ==========================================
+        // Dynamic Targets & Quotas API (Admin)
+        // ==========================================
+        async updateAdminQuotas(quotasData) {
+            return this.request('/api/admin/quotas', {
+                method: 'PUT',
+                json: quotasData
+            });
+        }
+
+        // ==========================================
+        // Dynamic Coaches Accounts API (Admin)
+        // ==========================================
+        async createAdminCoach(coachData) {
+            return this.request('/api/admin/coaches', {
+                method: 'POST',
+                json: coachData
+            });
+        }
+
+        async updateAdminCoach(coachId, coachData) {
+            return this.request(`/api/admin/coaches/${coachId}`, {
+                method: 'PUT',
+                json: coachData
+            });
+        }
+
+        async deleteAdminCoach(coachId) {
+            return this.request(`/api/admin/coaches/${coachId}`, {
+                method: 'DELETE'
+            });
+        }
     }
 
     const client = new ApiClient();

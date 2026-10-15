@@ -29,6 +29,9 @@ function initializeDatabase(forceReset = false) {
 
     if (forceReset) {
         db.exec(`
+            DROP TABLE IF EXISTS chat_messages;
+            DROP TABLE IF EXISTS chat_channel_members;
+            DROP TABLE IF EXISTS chat_channels;
             DROP TABLE IF EXISTS supervisor_feedbacks;
             DROP TABLE IF EXISTS ethics_referrals;
             DROP TABLE IF EXISTS ethics_checkpoints;
@@ -165,6 +168,37 @@ function initializeDatabase(forceReset = false) {
             grade REAL,
             created_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS chat_channels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_type TEXT NOT NULL CHECK(channel_type IN ('direct', 'group')),
+            name TEXT NOT NULL,
+            description TEXT,
+            direct_coach_id INTEGER REFERENCES coaches(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS chat_channel_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id INTEGER NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            role TEXT DEFAULT 'member',
+            last_read_message_id INTEGER DEFAULT 0,
+            joined_at TEXT NOT NULL,
+            UNIQUE(channel_id, user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id INTEGER NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+            sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            message_type TEXT NOT NULL DEFAULT 'text' CHECK(message_type IN ('text', 'audio', 'image', 'file')),
+            content TEXT,
+            media_url TEXT,
+            media_meta TEXT,
+            is_pinned INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
     `);
 
     // Check if admin user exists; if not, seed initial data
@@ -226,7 +260,7 @@ function seedInitialData(db) {
 
     // 1. Admin Account: Master Coach Abdelkarim Al-Khelaifi
     const adminPassHash = bcrypt.hashSync('Master@2026', 10);
-    insertUser.run(
+    const adminRes = insertUser.run(
         'abdelkarim@cyce52.com',
         adminPassHash,
         'الماستر كوتش عبدالكريم الخليفي',
@@ -235,6 +269,7 @@ function seedInitialData(db) {
         '+966 55 555 2026',
         now
     );
+    const adminUserId = adminRes.lastInsertRowid;
 
     // 2. Candidate 1: Coach Ahmed Al-Shammari (Primary Demo Coach)
     const coach1PassHash = bcrypt.hashSync('Coach@2026', 10);
@@ -477,6 +512,181 @@ function seedInitialData(db) {
             cp.clearedAt || '2026-05-10'
         );
     });
+
+    // 4. Seed Chat System (Cohort Group Chat + 1-on-1 Supervisory Chats)
+    const insertChannel = db.prepare(`
+        INSERT INTO chat_channels (channel_type, name, description, direct_coach_id, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const insertMember = db.prepare(`
+        INSERT INTO chat_channel_members (channel_id, user_id, role, last_read_message_id, joined_at)
+        VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const insertMessage = db.prepare(`
+        INSERT INTO chat_messages (channel_id, sender_id, message_type, content, media_url, media_meta, is_pinned, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    // A. Cohort Group Channel
+    const groupRes = insertChannel.run(
+        'group',
+        'ديوان زمالة الماستر كوتش (دفعة 2026)',
+        'القناة الرسمية المعتمدة لدفعة برنامج إعداد وتأهيل الماستر كوتش 3.0 لنقاش الحالات وتطوير الممارسات الإشرافية والتعاون المهني.',
+        null,
+        now
+    );
+    const groupId = groupRes.lastInsertRowid;
+    insertMember.run(groupId, adminUserId, 'admin', 0, now);
+    insertMember.run(groupId, user1Id, 'member', 0, now);
+    insertMember.run(groupId, user2Id, 'member', 0, now);
+
+    // Initial group messages
+    insertMessage.run(
+        groupId,
+        adminUserId,
+        'text',
+        'أهلاً ومرحباً بكم جميعاً زملاء دفعة برنامج إعداد وتأهيل الماستر كوتش 3.0 في ديوان الزمالة المعتمد. تم تدشين هذه المساحة الإشرافية المباشرة لتبادل الاستبصارات العميقة حول الحالات الميدانية العشرين ومناقشة تحديات تطبيقات الأدوات الـ 90 وبناء النماذج الابتكارية وفق ميثاق الاتحاد العربي للكوتشنج.',
+        null,
+        null,
+        1,
+        new Date(Date.now() - 3600000 * 6).toISOString()
+    );
+
+    insertMessage.run(
+        groupId,
+        user1Id,
+        'text',
+        'أهلاً بك ماستر كوتش عبدالكريم وبكافة الزملاء الكرام. بدأنا هذا الأسبوع تطبيق مقياس مؤشرات النضج القيادي والدافعية المهنية (LMMI) مع القيادات التنفيذية في الحالة #04، والنتائج مبهرة جداً في إبراز الفجوة بين الأهداف الاستراتيجية ومؤشرات الدافعية الفردية.',
+        null,
+        null,
+        0,
+        new Date(Date.now() - 3600000 * 5).toISOString()
+    );
+
+    insertMessage.run(
+        groupId,
+        user2Id,
+        'text',
+        'زميلي كوتش أحمد، تجربة ملهمة! كيف تعاملت مع مقاومة الإفصاح لدى المستفيد القيادي في مرحلة المقابلات الاستكشافية الأولية؟ أواجه تحدياً مشابهاً في الحالة الميدانية #02.',
+        null,
+        null,
+        0,
+        new Date(Date.now() - 3600000 * 4).toISOString()
+    );
+
+    insertMessage.run(
+        groupId,
+        adminUserId,
+        'audio',
+        'ملاحظة إشرافية صوتية: توجيهات الماستر كوتش حول فك مقاومة الإفصاح وبناء الأمان النفسي في الكوتشنج التنفيذي',
+        '/uploads/sample_supervisor_guidance.mp3',
+        JSON.stringify({ fileName: 'supervisor_audio_note_01.mp3', duration: '02:30', sizeBytes: 40044, mimeType: 'audio/mpeg' }),
+        0,
+        new Date(Date.now() - 3600000 * 3).toISOString()
+    );
+
+    insertMessage.run(
+        groupId,
+        adminUserId,
+        'image',
+        'إطار مصفوفة مستويات الأمان النفسي وبناء التحالف الكوتشنجي المعتمد في حقيبة تمكين الرؤية',
+        '/assets/images/logo.png',
+        JSON.stringify({ fileName: 'psychological_safety_framework.png', sizeBytes: 56285, mimeType: 'image/png' }),
+        0,
+        new Date(Date.now() - 3600000 * 2).toISOString()
+    );
+
+    // B. Direct Channel 1: Master Coach & Coach Ahmed
+    const direct1Res = insertChannel.run(
+        'direct',
+        'جلسة إشراف فردية - كوتش أحمد الشمري',
+        'قناة الإشراف والتوجيه المهني الفردي المباشر بين الماستر كوتش عبدالكريم والكوتش أحمد الشمري',
+        coach1Id,
+        now
+    );
+    const direct1Id = direct1Res.lastInsertRowid;
+    insertMember.run(direct1Id, adminUserId, 'admin', 0, now);
+    insertMember.run(direct1Id, user1Id, 'member', 0, now);
+
+    insertMessage.run(
+        direct1Id,
+        adminUserId,
+        'text',
+        'مرحباً كوتش أحمد، راجعت تقرير جلستك الموثقة #08 بعناية. الهيكل الزمني واستيفاء معايير روبرك الجلسات كان متميزاً جداً ونال تقديراً 4.9/5.00 مع استيفاء تام للبوابة الأخلاقية.',
+        null,
+        null,
+        0,
+        new Date(Date.now() - 3600000 * 8).toISOString()
+    );
+
+    insertMessage.run(
+        direct1Id,
+        user1Id,
+        'text',
+        'أشكرك ماستر كوتش على التغذية الراجعة والملاحظات التوجيهية الثمينة. استفساري بخصوص إحالة الحالة REF-2026-01: هل التوثيق المرفق في سجل الإحالات التخصصية يستوفي متطلبات التدقيق النهائي للاعتماد؟',
+        null,
+        null,
+        0,
+        new Date(Date.now() - 3600000 * 7).toISOString()
+    );
+
+    insertMessage.run(
+        direct1Id,
+        adminUserId,
+        'text',
+        'نعم تماماً، إقرارك لحدود الاختصاص ونزع الهوية مطابق 100% لمعايير البوابة الأخلاقية المستقلة، وتم تدقيق الحالة في سجل الإحالات واعتمادها رسمياً.',
+        null,
+        null,
+        0,
+        new Date(Date.now() - 3600000 * 6).toISOString()
+    );
+
+    insertMessage.run(
+        direct1Id,
+        user1Id,
+        'file',
+        'مسودة ملخص الأثر البعدي لشركة ريادة التقنية (مشروع التخرج)',
+        '/uploads/sample_supervisor_guidance.wav',
+        JSON.stringify({ fileName: 'Impact_Summary_Riyada_Tech.pdf', sizeBytes: 40044, mimeType: 'application/pdf', pages: 12 }),
+        0,
+        new Date(Date.now() - 3600000 * 4).toISOString()
+    );
+
+    // C. Direct Channel 2: Master Coach & Coach Sara
+    const direct2Res = insertChannel.run(
+        'direct',
+        'جلسة إشراف فردية - كوتش سارة المطيري',
+        'قناة الإشراف والتوجيه المهني الفردي المباشر بين الماستر كوتش عبدالكريم والكوتش سارة المطيري',
+        coach2Id,
+        now
+    );
+    const direct2Id = direct2Res.lastInsertRowid;
+    insertMember.run(direct2Id, adminUserId, 'admin', 0, now);
+    insertMember.run(direct2Id, user2Id, 'member', 0, now);
+
+    insertMessage.run(
+        direct2Id,
+        adminUserId,
+        'text',
+        'مرحباً كوتش سارة، يسعدني انضمامك للدفعة التطويرية، بانتظار استكمال بقية تطبيقات الأدوات الـ 90 لنقل ملفك لمرحلة التحكيم النهائي.',
+        null,
+        null,
+        0,
+        new Date(Date.now() - 3600000 * 9).toISOString()
+    );
+
+    insertMessage.run(
+        direct2Id,
+        user2Id,
+        'text',
+        'أهلاً ماستر كوتش، تم إنجاز 20 تطبيقاً في MBTI و 20 في عجلة الحياة، وجاري العمل على استكمال تطبيقات SWOT المتبقية هذا الأسبوع بإذن الله.',
+        null,
+        null,
+        0,
+        new Date(Date.now() - 3600000 * 8).toISOString()
+    );
 }
 
 // Data Access Methods
@@ -682,6 +892,12 @@ function getCoachCompleteState(coachId) {
         }
     }
 
+    // Ensure dynamic certificateConfig is initialized
+    if (!state.certificateConfig) {
+        const ProgramStore = require('../js/data.js');
+        state.certificateConfig = JSON.parse(JSON.stringify(ProgramStore.DEFAULT_DATA.certificateConfig));
+    }
+
     return state;
 }
 
@@ -690,6 +906,324 @@ function updateCoachState(coachId, newState) {
     const now = new Date().toISOString();
     return db.prepare('UPDATE coach_program_state SET state_json = ?, updated_at = ? WHERE coach_id = ?')
         .run(JSON.stringify(newState), now, coachId);
+}
+
+// ----------------------------------------------------
+// Chat & Supervisory Messaging Methods
+// ----------------------------------------------------
+
+function getChatChannelsForUser(userId) {
+    const db = getDb();
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!user) return [];
+
+    let memberChannels;
+    if (user.role === 'admin') {
+        memberChannels = db.prepare(`
+            SELECT c.*, COALESCE(m.last_read_message_id, 0) as last_read_message_id
+            FROM chat_channels c
+            LEFT JOIN chat_channel_members m ON c.id = m.channel_id AND m.user_id = ?
+            ORDER BY c.id ASC
+        `).all(userId);
+    } else {
+        memberChannels = db.prepare(`
+            SELECT c.*, m.last_read_message_id
+            FROM chat_channels c
+            JOIN chat_channel_members m ON c.id = m.channel_id
+            WHERE m.user_id = ?
+            ORDER BY c.id ASC
+        `).all(userId);
+    }
+
+    return memberChannels.map(channel => {
+        // Last message
+        const lastMsg = db.prepare(`
+            SELECT m.*, u.name as sender_name, u.role as sender_role
+            FROM chat_messages m
+            JOIN users u ON m.sender_id = u.id
+            WHERE m.channel_id = ?
+            ORDER BY m.id DESC LIMIT 1
+        `).get(channel.id);
+
+        // Unread count
+        const unread = db.prepare(`
+            SELECT COUNT(*) as cnt
+            FROM chat_messages
+            WHERE channel_id = ? AND id > ? AND sender_id != ?
+        `).get(channel.id, channel.last_read_message_id || 0, userId);
+
+        // Channel members
+        const members = db.prepare(`
+            SELECT u.id, u.name, u.email, u.role, u.avatar, m.role as member_role
+            FROM chat_channel_members m
+            JOIN users u ON m.user_id = u.id
+            WHERE m.channel_id = ?
+        `).all(channel.id);
+
+        let displayName = channel.name;
+        let displayAvatar = 'assets/images/logo.png';
+        let displayRole = 'group';
+
+        if (channel.channel_type === 'direct') {
+            const otherMember = members.find(m => m.id !== userId) || members[0];
+            if (otherMember) {
+                displayName = otherMember.role === 'admin'
+                    ? 'الماستر كوتش عبدالكريم الخليفي'
+                    : otherMember.name;
+                displayAvatar = otherMember.avatar || 'assets/images/logo.png';
+                displayRole = otherMember.role;
+            }
+        }
+
+        return {
+            id: channel.id,
+            channelType: channel.channel_type,
+            channel_type: channel.channel_type,
+            name: channel.name,
+            displayName,
+            displayAvatar,
+            displayRole,
+            description: channel.description,
+            directCoachId: channel.direct_coach_id,
+            direct_coach_id: channel.direct_coach_id,
+            createdAt: channel.created_at,
+            created_at: channel.created_at,
+            unreadCount: unread ? unread.cnt : 0,
+            unread_count: unread ? unread.cnt : 0,
+            last_message: lastMsg ? lastMsg.content : '',
+            last_message_time: lastMsg ? lastMsg.created_at : '',
+            lastMessage: lastMsg ? {
+                id: lastMsg.id,
+                messageType: lastMsg.message_type,
+                message_type: lastMsg.message_type,
+                content: lastMsg.content,
+                mediaUrl: lastMsg.media_url,
+                media_url: lastMsg.media_url,
+                senderId: lastMsg.sender_id,
+                sender_id: lastMsg.sender_id,
+                senderName: lastMsg.sender_name,
+                sender_name: lastMsg.sender_name,
+                senderRole: lastMsg.sender_role,
+                sender_role: lastMsg.sender_role,
+                createdAt: lastMsg.created_at,
+                created_at: lastMsg.created_at
+            } : null,
+            membersCount: members.length,
+            members
+        };
+    });
+}
+
+function getChannelById(channelId) {
+    const db = getDb();
+    return db.prepare('SELECT * FROM chat_channels WHERE id = ?').get(channelId);
+}
+
+function isUserChannelMember(channelId, userId) {
+    const db = getDb();
+    const row = db.prepare('SELECT 1 FROM chat_channel_members WHERE channel_id = ? AND user_id = ?').get(channelId, userId);
+    return !!row;
+}
+
+function getChannelMessages(channelId, { limit = 100, afterId = null, search = null } = {}) {
+    const db = getDb();
+    let query = `
+        SELECT m.*, u.name as sender_name, u.avatar as sender_avatar, u.role as sender_role
+        FROM chat_messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.channel_id = ?
+    `;
+    const params = [channelId];
+
+    if (afterId) {
+        query += ` AND m.id > ?`;
+        params.push(parseInt(afterId, 10));
+    }
+    if (search && search.trim()) {
+        query += ` AND (m.content LIKE ? OR m.media_meta LIKE ?)`;
+        params.push(`%${search.trim()}%`, `%${search.trim()}%`);
+    }
+
+    query += ` ORDER BY m.id ASC LIMIT ?`;
+    params.push(parseInt(limit, 10) || 100);
+
+    const rows = db.prepare(query).all(...params);
+    return rows.map(r => ({
+        id: r.id,
+        channelId: r.channel_id,
+        channel_id: r.channel_id,
+        senderId: r.sender_id,
+        sender_id: r.sender_id,
+        senderName: r.sender_name,
+        sender_name: r.sender_name,
+        senderAvatar: r.sender_avatar,
+        sender_avatar: r.sender_avatar,
+        senderRole: r.sender_role,
+        sender_role: r.sender_role,
+        messageType: r.message_type,
+        message_type: r.message_type,
+        content: r.content,
+        mediaUrl: r.media_url,
+        media_url: r.media_url,
+        mediaMeta: r.media_meta ? (typeof r.media_meta === 'string' ? JSON.parse(r.media_meta) : r.media_meta) : null,
+        media_meta: r.media_meta ? (typeof r.media_meta === 'string' ? JSON.parse(r.media_meta) : r.media_meta) : null,
+        isPinned: !!r.is_pinned,
+        createdAt: r.created_at,
+        created_at: r.created_at
+    }));
+}
+
+function createChatMessage({ channelId, senderId, messageType = 'text', content = '', mediaUrl = null, mediaMeta = null }) {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const metaString = mediaMeta ? (typeof mediaMeta === 'string' ? mediaMeta : JSON.stringify(mediaMeta)) : null;
+
+    const res = db.prepare(`
+        INSERT INTO chat_messages (channel_id, sender_id, message_type, content, media_url, media_meta, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(channelId, senderId, messageType, content, mediaUrl, metaString, now);
+
+    const newId = res.lastInsertRowid;
+
+    // Update sender's last_read_message_id
+    db.prepare(`
+        UPDATE chat_channel_members
+        SET last_read_message_id = ?
+        WHERE channel_id = ? AND user_id = ?
+    `).run(newId, channelId, senderId);
+
+    const msg = db.prepare(`
+        SELECT m.*, u.name as sender_name, u.avatar as sender_avatar, u.role as sender_role
+        FROM chat_messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.id = ?
+    `).get(newId);
+
+    return {
+        id: msg.id,
+        channelId: msg.channel_id,
+        channel_id: msg.channel_id,
+        senderId: msg.sender_id,
+        sender_id: msg.sender_id,
+        senderName: msg.sender_name,
+        sender_name: msg.sender_name,
+        senderAvatar: msg.sender_avatar,
+        sender_avatar: msg.sender_avatar,
+        senderRole: msg.sender_role,
+        sender_role: msg.sender_role,
+        messageType: msg.message_type,
+        message_type: msg.message_type,
+        content: msg.content,
+        mediaUrl: msg.media_url,
+        media_url: msg.media_url,
+        mediaMeta: msg.media_meta ? (typeof msg.media_meta === 'string' ? JSON.parse(msg.media_meta) : msg.media_meta) : null,
+        media_meta: msg.media_meta ? (typeof msg.media_meta === 'string' ? JSON.parse(msg.media_meta) : msg.media_meta) : null,
+        isPinned: !!msg.is_pinned,
+        createdAt: msg.created_at,
+        created_at: msg.created_at
+    };
+}
+
+function markChannelRead(channelId, userId, messageId = null) {
+    const db = getDb();
+    if (!messageId) {
+        const last = db.prepare('SELECT MAX(id) as maxId FROM chat_messages WHERE channel_id = ?').get(channelId);
+        messageId = last ? (last.maxId || 0) : 0;
+    }
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId);
+    const role = (user && user.role) || 'member';
+
+    return db.prepare(`
+        INSERT INTO chat_channel_members (channel_id, user_id, role, last_read_message_id, joined_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(channel_id, user_id) DO UPDATE SET
+            last_read_message_id = MAX(chat_channel_members.last_read_message_id, excluded.last_read_message_id)
+    `).run(channelId, userId, role, messageId, new Date().toISOString());
+}
+
+function searchChatMessages(userId, query) {
+    const db = getDb();
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId);
+    const isAdmin = user && user.role === 'admin';
+    let rows;
+
+    if (isAdmin) {
+        rows = db.prepare(`
+            SELECT m.*, c.name as channel_name, c.channel_type, u.name as sender_name, u.role as sender_role
+            FROM chat_messages m
+            JOIN chat_channels c ON m.channel_id = c.id
+            JOIN users u ON m.sender_id = u.id
+            WHERE (m.content LIKE ? OR m.media_meta LIKE ?)
+            ORDER BY m.id DESC
+            LIMIT 50
+        `).all(`%${query}%`, `%${query}%`);
+    } else {
+        rows = db.prepare(`
+            SELECT m.*, c.name as channel_name, c.channel_type, u.name as sender_name, u.role as sender_role
+            FROM chat_messages m
+            JOIN chat_channels c ON m.channel_id = c.id
+            JOIN chat_channel_members mem ON c.id = mem.channel_id
+            JOIN users u ON m.sender_id = u.id
+            WHERE mem.user_id = ? AND (m.content LIKE ? OR m.media_meta LIKE ?)
+            ORDER BY m.id DESC
+            LIMIT 50
+        `).all(userId, `%${query}%`, `%${query}%`);
+    }
+
+    return rows.map(r => ({
+        id: r.id,
+        channelId: r.channel_id,
+        channelName: r.channel_name,
+        channelType: r.channel_type,
+        senderId: r.sender_id,
+        senderName: r.sender_name,
+        senderRole: r.sender_role,
+        messageType: r.message_type,
+        content: r.content,
+        mediaUrl: r.media_url,
+        mediaMeta: r.media_meta ? (typeof r.media_meta === 'string' ? JSON.parse(r.media_meta) : r.media_meta) : null,
+        createdAt: r.created_at
+    }));
+}
+
+function setupNewCoachChat(newUserId, newCoachId, coachName) {
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    // 1. Add to group channel
+    const group = db.prepare("SELECT id FROM chat_channels WHERE channel_type = 'group' LIMIT 1").get();
+    if (group) {
+        db.prepare(`
+            INSERT OR IGNORE INTO chat_channel_members (channel_id, user_id, role, last_read_message_id, joined_at)
+            VALUES (?, ?, 'member', 0, ?)
+        `).run(group.id, newUserId, now);
+    }
+
+    // 2. Create direct supervisory channel with Master Coach
+    const adminUser = db.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").get();
+    if (adminUser) {
+        const res = db.prepare(`
+            INSERT INTO chat_channels (channel_type, name, description, direct_coach_id, created_at)
+            VALUES ('direct', ?, ?, ?, ?)
+        `).run(
+            `جلسة إشراف فردية - ${coachName}`,
+            `قناة الإشراف والتوجيه المهني الفردي المباشر بين الماستر كوتش عبدالكريم والكوتش ${coachName}`,
+            newCoachId,
+            now
+        );
+        const directId = res.lastInsertRowid;
+        db.prepare(`
+            INSERT INTO chat_channel_members (channel_id, user_id, role, last_read_message_id, joined_at)
+            VALUES (?, ?, 'admin', 0, ?), (?, ?, 'member', 0, ?)
+        `).run(directId, adminUser.id, now, directId, newUserId, now);
+
+        createChatMessage({
+            channelId: directId,
+            senderId: adminUser.id,
+            messageType: 'text',
+            content: `مرحباً بك يا كوتش ${coachName} في منظومة تمكين الرؤية لتأهيل الماستر كوتش. هذه القناة مخصصة للمتابعة الإشرافية المباشرة لجلساتك وحالاتك الميدانية واستشاراتك المهنية.`
+        });
+    }
 }
 
 module.exports = {
@@ -701,5 +1235,13 @@ module.exports = {
     getCoachById,
     getAllCoaches,
     getCoachCompleteState,
-    updateCoachState
+    updateCoachState,
+    getChatChannelsForUser,
+    getChannelById,
+    isUserChannelMember,
+    getChannelMessages,
+    createChatMessage,
+    markChannelRead,
+    searchChatMessages,
+    setupNewCoachChat
 };
