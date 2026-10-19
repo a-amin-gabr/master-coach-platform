@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { broadcastNotificationViaWS } = require('../websocket');
 
 function resolveCoachId(req) {
     if (req.user.role === 'admin') {
@@ -124,6 +125,32 @@ router.post('/evaluate', authenticate, requireRole('admin'), (req, res) => {
 
         // Check if critical blocker triggered
         const isCriticalBlocker = (criterion.isCritical && parsedLevel < 3);
+
+        // Create supervisory notification for coach and push via WebSocket
+        try {
+            const coachRow = dbConn.prepare('SELECT user_id FROM coaches WHERE id = ?').get(coachId);
+            if (coachRow && coachRow.user_id) {
+                const notifType = isCriticalBlocker ? 'ethics_alert' : 'rubric_eval';
+                const notifTitle = isCriticalBlocker
+                    ? `تنبيه حظر أخلاقي حاسم: ${criterion.name}`
+                    : `تحديث تقييم الروبرك: ${rubric.title} (${parsedLevel}/5)`;
+                const notifMsg = isCriticalBlocker
+                    ? `المعيار (${criterion.name}) معيار حرج لا يقبل التعويض. المستوى الحالي (${parsedLevel}/5) يتطلب معالجة عاجلة.`
+                    : (criterion.notes || `تم تحديث تقييم المعيار (${criterion.name}) إلى المستوى ${parsedLevel}.`);
+
+                const notif = db.createNotification({
+                    userId: coachRow.user_id,
+                    type: notifType,
+                    title: notifTitle,
+                    message: notifMsg,
+                    linkTab: 'rubrics',
+                    linkId: criterion.id,
+                    linkAction: `rubric:${rubricCode}`,
+                    metadata: { rubricCode, criterionId, level: parsedLevel, isCriticalBlocker }
+                });
+                broadcastNotificationViaWS(coachRow.user_id, notif);
+            }
+        } catch (_) {}
 
         return res.json({
             message: isCriticalBlocker

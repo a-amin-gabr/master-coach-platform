@@ -1,8 +1,10 @@
 node_modules/
 npm-debug.log*
 .DS_Store
+uploads/ev-*
+uploads/chat-*
+uploads/test-*
+data/*.db-shm
+data/*.db-wal
 scratch/
-data/platform.db-wal
-data/platform.db-shm
-data/platform.db-journal
-.env
+*.zip

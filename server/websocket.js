@@ -418,6 +418,20 @@ function broadcastReadReceiptViaWS(channelId, userId, messageId) {
 }
 
 /**
+ * Dual-broadcast bridge for supervisory live notifications.
+ */
+function broadcastNotificationViaWS(userId, notification) {
+    if (activeChannelManager) {
+        const event = {
+            type: 'NOTIFICATION_NEW',
+            notification,
+            timestamp: new Date().toISOString()
+        };
+        activeChannelManager.sendToUser(Number(userId), event);
+    }
+}
+
+/**
  * Initializes the WebSocket server and binds to an HTTP server instance.
  * @param {import('http').Server} httpServer
  * @returns {{ wss: WebSocketServer, channelManager: ChannelManager, broadcastChatMessageViaWS: Function }}
@@ -569,6 +583,34 @@ function initWebSocketServer(httpServer) {
                         break;
                     }
 
+                    case 'notifications:mark_read': {
+                        if (payload.id && ws.user) {
+                            db.markNotificationAsRead(payload.id, ws.user.id);
+                            const unreadCount = db.getUnreadNotificationsCount(ws.user.id);
+                            ws.send(JSON.stringify({
+                                type: 'notifications:read_ack',
+                                id: payload.id,
+                                unreadCount,
+                                correlationId,
+                                timestamp: new Date().toISOString()
+                            }));
+                        }
+                        break;
+                    }
+
+                    case 'notifications:mark_all_read': {
+                        if (ws.user) {
+                            db.markAllNotificationsAsRead(ws.user.id);
+                            ws.send(JSON.stringify({
+                                type: 'notifications:all_read_ack',
+                                unreadCount: 0,
+                                correlationId,
+                                timestamp: new Date().toISOString()
+                            }));
+                        }
+                        break;
+                    }
+
                     default: {
                         ws.send(JSON.stringify({
                             type: 'error',
@@ -638,7 +680,8 @@ function initWebSocketServer(httpServer) {
         wss,
         channelManager,
         broadcastChatMessageViaWS,
-        broadcastReadReceiptViaWS
+        broadcastReadReceiptViaWS,
+        broadcastNotificationViaWS
     };
 }
 
@@ -647,6 +690,7 @@ module.exports = {
     ChannelManager,
     broadcastChatMessageViaWS,
     broadcastReadReceiptViaWS,
+    broadcastNotificationViaWS,
     getActiveChannelManager: () => activeChannelManager,
     getActiveWss: () => activeWss
 };

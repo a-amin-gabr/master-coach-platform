@@ -1083,36 +1083,36 @@ const DEFAULT_PROGRAM_DATA = {
 
     // 30 Field Sessions Log (Distributed over the 20 Cases)
     sessions: [
-        { id: 1, caseId: 1, caseCode: "BEN-01", date: "2026-02-01", duration: 60, focus: "استكشاف التحديات القيادية وصياغة العقد", rubricsScore: 4.6, recordingUrl: "mock_session_01.mp3", status: "approved" },
-        { id: 2, caseId: 1, caseCode: "BEN-01", date: "2026-02-15", duration: 60, focus: "تطبيق نموذج GROW وتحديد خطة الإجراءات", rubricsScore: 4.8, recordingUrl: "mock_session_02.mp3", status: "approved" },
-        { id: 3, caseId: 2, caseCode: "BEN-02", date: "2026-02-05", duration: 65, focus: "تشخيص عوائق نمو الشركة والتحالف المهني", rubricsScore: 4.7, recordingUrl: "mock_session_03.mp3", status: "approved" },
-        { id: 4, caseId: 2, caseCode: "BEN-02", date: "2026-02-20", duration: 65, focus: "تطبيق نموذج CLEAR وبناء مصفوفة المسؤوليات", rubricsScore: 4.9, recordingUrl: "mock_session_04.mp3", status: "approved" },
-        { id: 5, caseId: 3, caseCode: "BEN-03", date: "2026-02-10", duration: 55, focus: "تطبيق عجلة الحياة وتشخيص مؤشرات الإجهاد", rubricsScore: 4.5, recordingUrl: "mock_session_05.mp3", status: "approved" },
-        { id: 6, caseId: 3, caseCode: "BEN-03", date: "2026-02-24", duration: 60, focus: "تطبيق نموذج OSKAR وترسيخ الحلول المستدامة", rubricsScore: 4.7, recordingUrl: "mock_session_06.mp3", status: "approved" },
-        { id: 7, caseId: 4, caseCode: "BEN-04", date: "2026-02-18", duration: 60, focus: "بناء الرؤية الشخصية وتفكيك القناعات المسبقة", rubricsScore: 4.8, recordingUrl: "mock_session_07.mp3", status: "approved" },
-        { id: 8, caseId: 4, caseCode: "BEN-04", date: "2026-03-04", duration: 65, focus: "تطبيق بوصلة التمكين الخماسي المبتكر", rubricsScore: 5.0, recordingUrl: "mock_session_08.mp3", status: "approved" },
-        { id: 9, caseId: 5, caseCode: "BEN-05", date: "2026-02-22", duration: 65, focus: "تحليل مؤشرات MBTI وأنماط التفاعل الفريقي", rubricsScore: 4.6, recordingUrl: "mock_session_09.mp3", status: "approved" },
-        { id: 10, caseId: 6, caseCode: "BEN-06", date: "2026-03-01", duration: 65, focus: "تفكيك متلازمة المحتال ومساءلة الأدلة الذاتية", rubricsScore: 4.9, recordingUrl: "mock_session_10.mp3", status: "approved" },
-        { id: 11, caseId: 6, caseCode: "BEN-06", date: "2026-03-15", duration: 65, focus: "تثبيت الهوية القيادية وقياس الأثر التمكيني", rubricsScore: 5.0, recordingUrl: "mock_session_11.mp3", status: "approved" },
-        { id: 12, caseId: 7, caseCode: "BEN-07", date: "2026-03-05", duration: 60, focus: "تطبيق تحليل SWOT لمسار مهني استشاري جديد", rubricsScore: 4.7, recordingUrl: "mock_session_12.mp3", status: "approved" },
-        { id: 13, caseId: 7, caseCode: "BEN-07", date: "2026-03-20", duration: 60, focus: "تطبيق نموذج عمر قرافي للمسارات الثلاثة", rubricsScore: 4.8, recordingUrl: "mock_session_13.mp3", status: "approved" },
-        { id: 14, caseId: 8, caseCode: "BEN-08", date: "2026-03-08", duration: 60, focus: "تشخيص صعوبة التفويض ومخاوف فقد السيطرة", rubricsScore: 4.5, recordingUrl: "mock_session_14.mp3", status: "approved" },
-        { id: 15, caseId: 8, caseCode: "BEN-08", date: "2026-03-22", duration: 60, focus: "تطبيق مصفوفة التفويض والمساءلة الواضحة", rubricsScore: 4.8, recordingUrl: "mock_session_15.mp3", status: "approved" },
-        { id: 16, caseId: 9, caseCode: "BEN-09", date: "2026-03-12", duration: 65, focus: "تطبيق تقنية 5 Whys للوصول لجذر تدني المبيعات", rubricsScore: 4.9, recordingUrl: "mock_session_16.mp3", status: "approved" },
-        { id: 17, caseId: 9, caseCode: "BEN-09", date: "2026-03-26", duration: 70, focus: "بناء خطة التحفيز الداخلي وتأطير الأهداف", rubricsScore: 4.8, recordingUrl: "mock_session_17.mp3", status: "approved" },
-        { id: 18, caseId: 10, caseCode: "BEN-10", date: "2026-03-18", duration: 60, focus: "تطبيق أداة إدارة النزاع والإنصات العميق", rubricsScore: 4.7, recordingUrl: "mock_session_18.mp3", status: "approved" },
-        { id: 19, caseId: 11, caseCode: "BEN-11", date: "2026-04-02", duration: 70, focus: "رسم الخريطة المنظومية لمقاومة الاندماج", rubricsScore: 5.0, recordingUrl: "mock_session_19.mp3", status: "approved" },
-        { id: 20, caseId: 11, caseCode: "BEN-11", date: "2026-04-16", duration: 70, focus: "صياغة خطة التدخل الكوتشنجي للقيادات الوسيطة", rubricsScore: 4.9, recordingUrl: "mock_session_20.mp3", status: "approved" },
-        { id: 21, caseId: 12, caseCode: "BEN-12", date: "2026-04-05", duration: 65, focus: "تقييم أبعاد الذكاء العاطفي وإدارة الغضب المهني", rubricsScore: 4.6, recordingUrl: "mock_session_21.mp3", status: "approved" },
-        { id: 22, caseId: 13, caseCode: "BEN-13", date: "2026-04-08", duration: 50, focus: "رصد أعراض خارج نطاق الكوتشنج وبروتوكول الإحالة", rubricsScore: 5.0, recordingUrl: "mock_session_22.mp3", status: "approved" },
-        { id: 23, caseId: 14, caseCode: "BEN-14", date: "2026-04-11", duration: 60, focus: "جلسة العصف الذهني الكوتشنجي لفرق الابتكار", rubricsScore: 4.7, recordingUrl: "mock_session_23.mp3", status: "approved" },
-        { id: 24, caseId: 14, caseCode: "BEN-14", date: "2026-04-25", duration: 60, focus: "تقييم الأفكار ومتابعة نماذج العمل المبتكرة", rubricsScore: 4.8, recordingUrl: "mock_session_24.mp3", status: "approved" },
-        { id: 25, caseId: 15, caseCode: "BEN-15", date: "2026-04-14", duration: 70, focus: "حوار الشفافية المؤسسية ورسم حدود الشراكة", rubricsScore: 4.9, recordingUrl: "mock_session_25.mp3", status: "approved" },
-        { id: 26, caseId: 16, caseCode: "BEN-16", date: "2026-04-19", duration: 60, focus: "تفكيك الخوف من التقنية وبناء عقلية التعلم", rubricsScore: 4.6, recordingUrl: "mock_session_26.mp3", status: "approved" },
-        { id: 27, caseId: 17, caseCode: "BEN-17", date: "2026-04-22", duration: 60, focus: "صياغة الغايات الاستراتيجية الشخصية لـ Pfeiffer", rubricsScore: 4.8, recordingUrl: "mock_session_27.mp3", status: "approved" },
-        { id: 28, caseId: 17, caseCode: "BEN-17", date: "2026-05-06", duration: 65, focus: "المراجعة الإشرافية لمسودة الخطة الاستراتيجية", rubricsScore: 4.9, recordingUrl: "mock_session_28.mp3", status: "approved" },
-        { id: 29, caseId: 18, caseCode: "BEN-18", date: "2026-04-28", duration: 60, focus: "تفكيك رهاب الإلقاء وممارسة التخيل التمكيني", rubricsScore: 4.7, recordingUrl: "mock_session_29.mp3", status: "approved" },
-        { id: 30, caseId: 20, caseCode: "BEN-20", date: "2026-05-02", duration: 60, focus: "تخطيط مرحلة ما بعد الوظيفة وتصميم الأثر الوقفي", rubricsScore: 4.9, recordingUrl: "mock_session_30.mp3", status: "approved" }
+        { id: 1, caseId: 1, caseCode: "BEN-01", date: "2026-02-01", duration: 60, focus: "استكشاف التحديات القيادية وصياغة العقد", rubricsScore: 4.6, recordingUrl: "session_rec_01.mp3", status: "approved" },
+        { id: 2, caseId: 1, caseCode: "BEN-01", date: "2026-02-15", duration: 60, focus: "تطبيق نموذج GROW وتحديد خطة الإجراءات", rubricsScore: 4.8, recordingUrl: "session_rec_02.mp3", status: "approved" },
+        { id: 3, caseId: 2, caseCode: "BEN-02", date: "2026-02-05", duration: 65, focus: "تشخيص عوائق نمو الشركة والتحالف المهني", rubricsScore: 4.7, recordingUrl: "session_rec_03.mp3", status: "approved" },
+        { id: 4, caseId: 2, caseCode: "BEN-02", date: "2026-02-20", duration: 65, focus: "تطبيق نموذج CLEAR وبناء مصفوفة المسؤوليات", rubricsScore: 4.9, recordingUrl: "session_rec_04.mp3", status: "approved" },
+        { id: 5, caseId: 3, caseCode: "BEN-03", date: "2026-02-10", duration: 55, focus: "تطبيق عجلة الحياة وتشخيص مؤشرات الإجهاد", rubricsScore: 4.5, recordingUrl: "session_rec_05.mp3", status: "approved" },
+        { id: 6, caseId: 3, caseCode: "BEN-03", date: "2026-02-24", duration: 60, focus: "تطبيق نموذج OSKAR وترسيخ الحلول المستدامة", rubricsScore: 4.7, recordingUrl: "session_rec_06.mp3", status: "approved" },
+        { id: 7, caseId: 4, caseCode: "BEN-04", date: "2026-02-18", duration: 60, focus: "بناء الرؤية الشخصية وتفكيك القناعات المسبقة", rubricsScore: 4.8, recordingUrl: "session_rec_07.mp3", status: "approved" },
+        { id: 8, caseId: 4, caseCode: "BEN-04", date: "2026-03-04", duration: 65, focus: "تطبيق بوصلة التمكين الخماسي المبتكر", rubricsScore: 5.0, recordingUrl: "session_rec_08.mp3", status: "approved" },
+        { id: 9, caseId: 5, caseCode: "BEN-05", date: "2026-02-22", duration: 65, focus: "تحليل مؤشرات MBTI وأنماط التفاعل الفريقي", rubricsScore: 4.6, recordingUrl: "session_rec_09.mp3", status: "approved" },
+        { id: 10, caseId: 6, caseCode: "BEN-06", date: "2026-03-01", duration: 65, focus: "تفكيك متلازمة المحتال ومساءلة الأدلة الذاتية", rubricsScore: 4.9, recordingUrl: "session_rec_10.mp3", status: "approved" },
+        { id: 11, caseId: 6, caseCode: "BEN-06", date: "2026-03-15", duration: 65, focus: "تثبيت الهوية القيادية وقياس الأثر التمكيني", rubricsScore: 5.0, recordingUrl: "session_rec_11.mp3", status: "approved" },
+        { id: 12, caseId: 7, caseCode: "BEN-07", date: "2026-03-05", duration: 60, focus: "تطبيق تحليل SWOT لمسار مهني استشاري جديد", rubricsScore: 4.7, recordingUrl: "session_rec_12.mp3", status: "approved" },
+        { id: 13, caseId: 7, caseCode: "BEN-07", date: "2026-03-20", duration: 60, focus: "تطبيق نموذج عمر قرافي للمسارات الثلاثة", rubricsScore: 4.8, recordingUrl: "session_rec_13.mp3", status: "approved" },
+        { id: 14, caseId: 8, caseCode: "BEN-08", date: "2026-03-08", duration: 60, focus: "تشخيص صعوبة التفويض ومخاوف فقد السيطرة", rubricsScore: 4.5, recordingUrl: "session_rec_14.mp3", status: "approved" },
+        { id: 15, caseId: 8, caseCode: "BEN-08", date: "2026-03-22", duration: 60, focus: "تطبيق مصفوفة التفويض والمساءلة الواضحة", rubricsScore: 4.8, recordingUrl: "session_rec_15.mp3", status: "approved" },
+        { id: 16, caseId: 9, caseCode: "BEN-09", date: "2026-03-12", duration: 65, focus: "تطبيق تقنية 5 Whys للوصول لجذر تدني المبيعات", rubricsScore: 4.9, recordingUrl: "session_rec_16.mp3", status: "approved" },
+        { id: 17, caseId: 9, caseCode: "BEN-09", date: "2026-03-26", duration: 70, focus: "بناء خطة التحفيز الداخلي وتأطير الأهداف", rubricsScore: 4.8, recordingUrl: "session_rec_17.mp3", status: "approved" },
+        { id: 18, caseId: 10, caseCode: "BEN-10", date: "2026-03-18", duration: 60, focus: "تطبيق أداة إدارة النزاع والإنصات العميق", rubricsScore: 4.7, recordingUrl: "session_rec_18.mp3", status: "approved" },
+        { id: 19, caseId: 11, caseCode: "BEN-11", date: "2026-04-02", duration: 70, focus: "رسم الخريطة المنظومية لمقاومة الاندماج", rubricsScore: 5.0, recordingUrl: "session_rec_19.mp3", status: "approved" },
+        { id: 20, caseId: 11, caseCode: "BEN-11", date: "2026-04-16", duration: 70, focus: "صياغة خطة التدخل الكوتشنجي للقيادات الوسيطة", rubricsScore: 4.9, recordingUrl: "session_rec_20.mp3", status: "approved" },
+        { id: 21, caseId: 12, caseCode: "BEN-12", date: "2026-04-05", duration: 65, focus: "تقييم أبعاد الذكاء العاطفي وإدارة الغضب المهني", rubricsScore: 4.6, recordingUrl: "session_rec_21.mp3", status: "approved" },
+        { id: 22, caseId: 13, caseCode: "BEN-13", date: "2026-04-08", duration: 50, focus: "رصد أعراض خارج نطاق الكوتشنج وبروتوكول الإحالة", rubricsScore: 5.0, recordingUrl: "session_rec_22.mp3", status: "approved" },
+        { id: 23, caseId: 14, caseCode: "BEN-14", date: "2026-04-11", duration: 60, focus: "جلسة العصف الذهني الكوتشنجي لفرق الابتكار", rubricsScore: 4.7, recordingUrl: "session_rec_23.mp3", status: "approved" },
+        { id: 24, caseId: 14, caseCode: "BEN-14", date: "2026-04-25", duration: 60, focus: "تقييم الأفكار ومتابعة نماذج العمل المبتكرة", rubricsScore: 4.8, recordingUrl: "session_rec_24.mp3", status: "approved" },
+        { id: 25, caseId: 15, caseCode: "BEN-15", date: "2026-04-14", duration: 70, focus: "حوار الشفافية المؤسسية ورسم حدود الشراكة", rubricsScore: 4.9, recordingUrl: "session_rec_25.mp3", status: "approved" },
+        { id: 26, caseId: 16, caseCode: "BEN-16", date: "2026-04-19", duration: 60, focus: "تفكيك الخوف من التقنية وبناء عقلية التعلم", rubricsScore: 4.6, recordingUrl: "session_rec_26.mp3", status: "approved" },
+        { id: 27, caseId: 17, caseCode: "BEN-17", date: "2026-04-22", duration: 60, focus: "صياغة الغايات الاستراتيجية الشخصية لـ Pfeiffer", rubricsScore: 4.8, recordingUrl: "session_rec_27.mp3", status: "approved" },
+        { id: 28, caseId: 17, caseCode: "BEN-17", date: "2026-05-06", duration: 65, focus: "المراجعة الإشرافية لمسودة الخطة الاستراتيجية", rubricsScore: 4.9, recordingUrl: "session_rec_28.mp3", status: "approved" },
+        { id: 29, caseId: 18, caseCode: "BEN-18", date: "2026-04-28", duration: 60, focus: "تفكيك رهاب الإلقاء وممارسة التخيل التمكيني", rubricsScore: 4.7, recordingUrl: "session_rec_29.mp3", status: "approved" },
+        { id: 30, caseId: 20, caseCode: "BEN-20", date: "2026-05-02", duration: 60, focus: "تخطيط مرحلة ما بعد الوظيفة وتصميم الأثر الوقفي", rubricsScore: 4.9, recordingUrl: "session_rec_30.mp3", status: "approved" }
     ],
 
     // 90 Tool Applications (30 MBTI, 30 Wheel of Life, 30 SWOT)
@@ -2217,8 +2217,8 @@ const DEFAULT_PROGRAM_DATA = {
 
     // Graduation Innovation Project
     graduationProject: {
-        title: "منظومة 'تمكين 360' للذكاء الكوتشنجي: إطار تطبيقي يدمج مقياس LMMI ونموذج بوصلة التمكين الخماسي في البيئات المؤسسية المعقدة",
-        relationToModels: "يطور النموذج الابتكاري الأول (بوصلة التمكين) والأداة الابتكارية المعتمدة (LMMI)",
+        title: "مشروع التخرج الابتكاري في الكوتشنج القيادي والمؤسسي: إطار تطبيقي لتطوير النضج المهني (تمكين 360)",
+        relationToModels: "تطوير النموذج الابتكاري وأداة تحليل الشخصية المعتمدة (LMMI)",
         defenseDate: "2026-05-20",
         juryChair: "الماستر كوتش عبدالكريم الخليفي",
         juryMembers: ["د. عبدالكريم الخليفي (رئيساً)", "أ.د. فهد السبيعي (عضواً علمياً)", "كوتش منى التميمي (عضواً مهنياً MCC)"],
@@ -2310,7 +2310,7 @@ const DEFAULT_PROGRAM_DATA = {
                         2: "مقبول: التزام سطحي مع غفلة عن بعض تفاصيل حماية البيانات أو التنبيه المبكر.",
                         3: "جيد: التزام صريح بالمعايير الأخلاقية ونزع المعرفات وتطبيق الميثاق المعتمد.",
                         4: "جيد جداً: يقظة أخلاقية عالية، ميثاق موقع، وتحديد فوري لأي شبهة تضارب مصالح.",
-                        5: "ممتاز: مناعة أخلاقية مطلقة، بيئة أمان نفسي استثنائية، وشفافية وحوكمة صارمة."
+                        5: "ممتاز: التزام أخلاقي نموذجي، بيئة أمان نفسي للمستفيد، وشفافية وحوكمة مهنية صارمة."
                     }
                 },
                 {
@@ -2838,8 +2838,8 @@ const DEFAULT_PROGRAM_DATA = {
     tasks: [
         {
             id: "TASK-01",
-            title: "إيداع تسجيل الجلسة المهنية الأولى وتقرير التعاقد",
-            category: "الجلسات الميدانية",
+            title: "إيداع تسجيل الجلسة المهنية الأولى وإدارة التعاقد",
+            category: "الممارسة الميدانية والتعاقد",
             linkedCompetencies: ["C101", "C102", "C103", "C801", "C802"],
             rubricCode: "sessions",
             status: "approved",
@@ -2876,15 +2876,52 @@ const DEFAULT_PROGRAM_DATA = {
             ]
         },
         {
+            id: "TASK-03",
+            title: "ملف دراسات الحالات الميدانية والجلسات الموثقة (20 حالة و30 جلسة)",
+            category: "الممارسة الميدانية ودراسة الحالات",
+            linkedCompetencies: ["C201", "C202", "C203", "C303", "C801"],
+            rubricCode: "sessions",
+            status: "approved",
+            version: "v2.0",
+            dueDate: "2026-03-10",
+            submissionDate: "2026-03-08",
+            evidences: [
+                { type: "document", name: "الملف_الشامل_لتقارير_الحالات_العشرين_المتكاملة.pdf", pages: 110, size: "18.5 MB" },
+                { type: "document", name: "سجل_الجلسات_الميدانية_الثلاثين_الموثقة.pdf", pages: 30, size: "4.2 MB" },
+                { type: "video", name: "تسجيل_جلسات_المحاكاة_الرباعية_في_المختبر_4.mp4", duration: "45:00", size: "220 MB" }
+            ],
+            reflection: {
+                whatDidIDo: "وثقت ملفات الـ 20 حالة كاملة مع خطط التدخل وتقارير التشخيص، ونفذت جلسات المحاكاة التبادلية لأدوار (الماستر، المستفيد، الملاحظ، المشرف).",
+                why: "المحاكاة وتبادل الأدوار يكشف زوايا الرؤية الخفية ويعزز التعاطف التكتيكي والحضور الكوتشنجي الرصين.",
+                impact: "تلاشي أي ارتباك في التعامل مع الحالات الصعبة وإتقان الفصل بين دور المشرف ودور الممارس.",
+                whatWillIChange: "تعميق التوثيق اللحظي للمشاعر والانفعالات أثناء جلسات المحاكاة."
+            },
+            supervisorFeedback: {
+                evaluator: "الماستر كوتش عبدالكريم الخليفي",
+                date: "2026-03-12",
+                grade: 4.92,
+                audioNoteUrl: "audio_feedback_03.mp3",
+                audioDuration: "04:00",
+                notes: "ملف الحالات العشرين ثروة مهنية حقيقية، وأداؤك في المحاكاة أظهر كوتشاً يمتلك أدواته بثقة بالغة.",
+                timestamps: [
+                    { time: "02:30", comment: "إدارتك للحالة المقاومة في المحاكاة كانت نموذجاً يُدرس." }
+                ]
+            },
+            history: [
+                { version: "v1.0", date: "2026-03-08", status: "submitted", note: "إيداع ملف الحالات والمحاكاة." },
+                { version: "v2.0", date: "2026-03-12", status: "approved", note: "اعتماد الحالات بتقدير ممتاز." }
+            ]
+        },
+        {
             id: "TASK-02",
-            title: "تطبيق أدوات التقييم الـ 90 (MBTI 30, Wheel 30, SWOT 30)",
-            category: "تطبيقات الأدوات",
+            title: "توثيق تطبيقات أدوات الكوتشنج الـ 90 (MBTI، عجلة الحياة، SWOT)",
+            category: "تطبيقات الأدوات الميدانية",
             linkedCompetencies: ["C304", "C305", "C703", "C802"],
             rubricCode: "portfolio",
             status: "approved",
             version: "v1.0",
-            dueDate: "2026-04-15",
-            submissionDate: "2026-04-12",
+            dueDate: "2026-03-25",
+            submissionDate: "2026-03-22",
             evidences: [
                 { type: "document", name: "أرشيف_تطبيقات_MBTI_الثلاثين_الموثقة.pdf", pages: 35, size: "8.5 MB" },
                 { type: "document", name: "خطط_عجلة_الحياة_الـ_30_مع_مؤشرات_المتابعة.pdf", pages: 42, size: "11 MB" },
@@ -2899,7 +2936,7 @@ const DEFAULT_PROGRAM_DATA = {
             },
             supervisorFeedback: {
                 evaluator: "الماستر كوتش عبدالكريم الخليفي",
-                date: "2026-04-16",
+                date: "2026-03-26",
                 grade: 5.0,
                 audioNoteUrl: "audio_feedback_02.mp3",
                 audioDuration: "02:50",
@@ -2909,35 +2946,110 @@ const DEFAULT_PROGRAM_DATA = {
                 ]
             },
             history: [
-                { version: "v1.0", date: "2026-04-12", status: "approved", note: "تسليم السجل الكامل واعتماده مباشرة." }
+                { version: "v1.0", date: "2026-03-22", status: "approved", note: "تسليم السجل الكامل واعتماده مباشرة." }
             ]
         },
         {
-            id: "TASK-03",
-            title: "تسليم الورقة العلمية التطبيقية (58 صفحة) وعرضها العلمي",
-            category: "البحث العلمي",
+            id: "TASK-06",
+            title: "إيداع التسجيلات المهنية الاحترافية الخمسة واستيفاء التغذية الراجعة",
+            category: "التسجيلات المهنية المتخصصة",
+            linkedCompetencies: ["C101", "C103", "C104", "C105", "C801"],
+            rubricCode: "sessions",
+            status: "approved",
+            version: "v1.1",
+            dueDate: "2026-04-10",
+            submissionDate: "2026-04-08",
+            evidences: [
+                { type: "audio", name: "تسجيل_01_القيادة_وإدارة_التغيير.mp3", duration: "52:00", size: "48 MB" },
+                { type: "audio", name: "تسجيل_02_إدارة_النزاع_والضغوط.mp3", duration: "48:15", size: "44 MB" },
+                { type: "audio", name: "تسجيل_03_الكوتشنج_المعرفي.mp3", duration: "31:45", size: "29 MB" },
+                { type: "audio", name: "تسجيل_04_الكوتشنج_المنظومي.mp3", duration: "26:50", size: "25 MB" },
+                { type: "audio", name: "تسجيل_05_الأخلاقيات_والإحالة.mp3", duration: "25:10", size: "23 MB" }
+            ],
+            reflection: {
+                whatDidIDo: "سجلت وأودعت 5 تسجيلات صوتية احترافية في موضوعات الكوتشنج التخصصية الخمسة المعتمدة، وراجعت التغذية الراجعة الزمنية مع المشرف.",
+                why: "للتحقق من إتقان المهارات الكوتشنجية الدقيقة (الإنصات التوليدي، الأسئلة القوية، وإدارة الحوار) في بيئة محاكاة وممارسة محمية.",
+                impact: "تطور كبير في وعي الممارس بمستويات الإنصات والسيطرة على تدفق الجلسة والالتزام الصارم بالسرية.",
+                whatWillIChange: "المحافظة على مساحة التفكير الصامت وإتاحة وقت أوسع للمستفيد للتأمل قبل الإجابة."
+            },
+            supervisorFeedback: {
+                evaluator: "الماستر كوتش عبدالكريم الخليفي",
+                date: "2026-04-12",
+                grade: 4.90,
+                audioNoteUrl: "audio_feedback_06.mp3",
+                audioDuration: "03:15",
+                notes: "أداء صوتي متمكن للغاية، والتزام دقيق بميثاق الكوتشنج وإتقان فائق لإدارة الوقت ومخرجات الجلسات.",
+                timestamps: [
+                    { time: "01:05", comment: "إدارة الحوار في التسجيل الثاني كانت احترافية ورصينة." }
+                ]
+            },
+            history: [
+                { version: "v1.0", date: "2026-04-08", status: "revision_required", note: "توضيح إجراءات نزع الهوية في التسجيل الخامس." },
+                { version: "v1.1", date: "2026-04-12", status: "approved", note: "الاعتماد النهائي بتقدير ممتاز." }
+            ]
+        },
+        {
+            id: "TASK-04",
+            title: "النماذج الابتكارية للكوتشنج ومشروع تهيئة المؤسسة",
+            category: "الابتكار والاستشارات المؤسسية",
+            linkedCompetencies: ["C301", "C402", "C601", "C602", "C604"],
+            rubricCode: "portfolio",
+            status: "approved",
+            version: "v1.0",
+            dueDate: "2026-04-25",
+            submissionDate: "2026-04-22",
+            evidences: [
+                { type: "document", name: "دليل_مقياس_LMMI_الابتكاري_المعتمد.pdf", pages: 28, size: "3.5 MB" },
+                { type: "document", name: "كتيب_النماذج_العشرة_للكوتشنج_والإدارة.pdf", pages: 48, size: "7.2 MB" },
+                { type: "document", name: "ملف_مشروع_تهيئة_شركة_ريادة_التقنية_كاملاً.pdf", pages: 52, size: "8.1 MB" }
+            ],
+            reflection: {
+                whatDidIDo: "طورت 10 نماذج كوتشنج وإدارة ابتكارية، وأداة تحليل الشخصية (LMMI)، وأعددت خطة متكاملة لتهيئة مؤسسة لثقافة الكوتشنج وفق نموذج قرافي للمسارات الثلاثة وPfeiffer المعدل.",
+                why: "الماستر كوتش يرتقي بمهنته من مجرد ممارس لأدوات الآخرين إلى مطور يبتكر حلولاً نوعية تصمم لبيئة المستفيد والمؤسسة.",
+                impact: "اعتماد النماذج من قبل اللجنة وموافقة شركة ريادة التقنية على تطبيق خطة التهيئة المؤسسية.",
+                whatWillIChange: "تسجيل الملكية الفكرية للمقياس وحفظ الحقوق رسمياً لدى الهيئة السعودية للملكية الفكرية (SAIP)."
+            },
+            supervisorFeedback: {
+                evaluator: "الماستر كوتش عبدالكريم الخليفي",
+                date: "2026-04-26",
+                grade: 4.88,
+                audioNoteUrl: "audio_feedback_04.mp3",
+                audioDuration: "03:30",
+                notes: "إبداع حقيقي وتطبيق رصين جمع بين الابتكار النظري والتنفيذ العملي المؤسسي.",
+                timestamps: [
+                    { time: "01:20", comment: "مواءمة Pfeiffer المعدل مع سياق الشركة كانت موفقة جداً." }
+                ]
+            },
+            history: [
+                { version: "v1.0", date: "2026-04-22", status: "approved", note: "اعتماد حزمة النماذج ومشروع التهيئة كاملاً." }
+            ]
+        },
+        {
+            id: "TASK-05",
+            title: "إعداد الورقة العلمية التطبيقية (50+ صفحة) وعرضها العلمي",
+            category: "البحث العلمي التطبيقي",
             linkedCompetencies: ["C501", "C502", "C503", "C504", "C505"],
             rubricCode: "research_paper",
             status: "approved",
             version: "v2.0",
-            dueDate: "2026-05-01",
-            submissionDate: "2026-04-28",
+            dueDate: "2026-05-05",
+            submissionDate: "2026-05-02",
             evidences: [
                 { type: "document", name: "الورقة_العلمية_النهائية_58_صفحة_APA7.pdf", pages: 58, size: "6.8 MB" },
                 { type: "document", name: "العرض_المرئي_Slide_Deck_الملتقى_السنوي.pdf", pages: 25, size: "4.1 MB" },
                 { type: "video", name: "تسجيل_العرض_والمناقشة_في_ملتقى_تمكين_2026.mp4", duration: "32:00", size: "180 MB" }
             ],
             reflection: {
-                whatDidIDo: "أعددت ورقة بحثية رصينة من 58 صفحة حول فاعلية الكوتشنج المنظومي المدعوم بالذكاء الاصطناعي، وقدمت عرضاً علمياً أمام نخبة من الخبراء في ملتقى تمكين 2026.",
+                whatDidIDo: "أعددت ورقة بحثية رصينة من 58 صفحة حول أثر الكوتشنج القيادي في تعزيز المرونة التنظيمية وخفض الاحتراق المهني، وقدمت عرضاً علمياً في ملتقى تمكين 2026.",
                 why: "لإثراء المحتوى العربي بأبحاث ميدانية مسندة بالبراهين تثبت العائد الاستثماري للكوتشنج القيادي.",
-                impact: "أشادت اللجنة بالمنهجية المختلطة وتلقت الورقة اهتماماً من 3 مؤسسات حكومية لتطبيق نتائجها.",
-                whatWillIChange: "سأعمل على نشر ملخص تنفيذي باللغة الإنجليزية في مجلة دولية محكمة للكوتشنج."
+                impact: "أشادت اللجنة بالمنهجية العلمية والتحليل الإحصائي وتلقت الورقة اهتماماً من مؤسسات لتطبيق نتائجها.",
+                whatWillIChange: "سأعمل على نشر ملخص تنفيذي موجز في مجلة علمية محكمة."
             },
             supervisorFeedback: {
                 evaluator: "الماستر كوتش عبدالكريم الخليفي",
-                date: "2026-05-03",
+                date: "2026-05-06",
                 grade: 4.95,
-                audioNoteUrl: "audio_feedback_03.mp3",
+                audioNoteUrl: "audio_feedback_05.mp3",
                 audioDuration: "04:10",
                 notes: "ورقة ترتقي لرسائل الماجستير المهنية في أعرق الجامعات. عرضك في الملتقى كان واثقاً ومقنعاً.",
                 timestamps: [
@@ -2946,158 +3058,14 @@ const DEFAULT_PROGRAM_DATA = {
                 ]
             },
             history: [
-                { version: "v1.0", date: "2026-04-20", status: "revision_required", note: "تعديل بعض التوثيقات المرجعية وفق APA7 في الفصل الثاني." },
-                { version: "v2.0", date: "2026-04-28", status: "approved", note: "الاعتماد النهائي بتقدير ممتاز." }
-            ]
-        },
-        {
-            id: "TASK-04",
-            title: "إيداع الأداة الابتكارية والنماذج العشرة ومشروع التخرج",
-            category: "الابتكار ومشروع التخرج",
-            linkedCompetencies: ["C601", "C602", "C603", "C604", "C605"],
-            rubricCode: "innovation_project",
-            status: "approved",
-            version: "v1.0",
-            dueDate: "2026-05-10",
-            submissionDate: "2026-05-08",
-            evidences: [
-                { type: "document", name: "دليل_مقياس_LMMI_الابتكاري_المعتمد.pdf", pages: 28, size: "3.5 MB" },
-                { type: "document", name: "كتيب_النماذج_العشرة_للكوتشنج_والإدارة.pdf", pages: 48, size: "7.2 MB" },
-                { type: "document", name: "مشروع_تخرج_منظومة_تمكين_360_والدفاع.pdf", pages: 64, size: "12 MB" }
-            ],
-            reflection: {
-                whatDidIDo: "طورت 10 نماذج كوتشنج وإدارة ابتكارية، وصممت مقياس LMMI للنضج القيادي، ودمجتهما في مشروع التخرج التكاملي 'تمكين 360'.",
-                why: "الماستر كوتش الحقيقي ليس مجرد ممارس لأدوات الآخرين، بل مطور يبتكر حلولاً نوعية تواكب متطلبات بيئته وبيئة مستفيديه.",
-                impact: "تحقيق اعتراف مهني من اللجنة وموافقة شركة ريادة التقنية على تبني المنظومة رسمياً.",
-                whatWillIChange: "تسجيل الملكية الفكرية للمقياس وحفظ الحقوق رسمياً لدى الهيئة السعودية للملكية الفكرية (SAIP)."
-            },
-            supervisorFeedback: {
-                evaluator: "الماستر كوتش عبدالكريم الخليفي",
-                date: "2026-05-12",
-                grade: 4.90,
-                audioNoteUrl: "audio_feedback_04.mp3",
-                audioDuration: "03:30",
-                notes: "إبداع حقيقي يمثل فخر برنامج الماستر كوتش. النماذج جاهزة للتدريب والتطبيق التجاري.",
-                timestamps: [
-                    { time: "01:45", comment: "بوصلة التمكين الخماسي فكرة أصيلة وغير مسبوقة في الأدبيات العربية." }
-                ]
-            },
-            history: [
-                { version: "v1.0", date: "2026-05-08", status: "approved", note: "اعتماد الحزمة الابتكارية كاملة." }
-            ]
-        },
-        {
-            id: "TASK-05",
-            title: "مشروع تهيئة مؤسسة للكوتشنج (شركة ريادة التقنية)",
-            category: "المشروعات المؤسسية",
-            linkedCompetencies: ["C301", "C402", "C405", "C604"],
-            rubricCode: "portfolio",
-            status: "approved",
-            version: "v1.0",
-            dueDate: "2026-04-25",
-            submissionDate: "2026-04-22",
-            evidences: [
-                { type: "document", name: "ملف_مشروع_تهيئة_شركة_ريادة_التقنية_كاملاً.pdf", pages: 52, size: "8.1 MB" },
-                { type: "document", name: "مخطط_قرافي_للمسارات_الثلاثة_والتطبيق.pdf", pages: 18, size: "2.4 MB" },
-                { type: "document", name: "الخطة_الاستراتيجية_وفق_Pfeiffer_المعدل.pdf", pages: 26, size: "3.9 MB" }
-            ],
-            reflection: {
-                whatDidIDo: "قمت بتهيئة شاملة لشركة ريادة التقنية للاستشارات نحو ثقافة الكوتشنج، عبر تطبيق نموذج عمر قرافي للمسارات الثلاثة ونموذج Pfeiffer المعدل وتدريب القيادات.",
-                why: "تحويل الكوتشنج من تدخلات فردية معزولة إلى منظومة مؤسسية تتناغم فيها الأهداف الفردية مع الاستراتيجية الكبرى للمنظمة.",
-                impact: "تحسن في بيئة العمل، وانخفاض دوران الموظفين بنسبة 18% وتأسيس وحدة كوتشنج داخلية بالشركة.",
-                whatWillIChange: "بناء مؤشرات قياس أثر رقمية مستمرة متصلة بنظام ERP الخاص بالشركة."
-            },
-            supervisorFeedback: {
-                evaluator: "الماستر كوتش عبدالكريم الخليفي",
-                date: "2026-04-26",
-                grade: 4.85,
-                audioNoteUrl: "audio_feedback_05.mp3",
-                audioDuration: "02:40",
-                notes: "تطبيق نموذجي للمشروع المؤسسي جمع بين الرؤية الاستراتيجية والتنفيذ العملي الدقيق.",
-                timestamps: [
-                    { time: "01:20", comment: "مواءمة Pfeiffer المعدل مع سياق الشركة كانت موفقة جداً." }
-                ]
-            },
-            history: [
-                { version: "v1.0", date: "2026-04-22", status: "approved", note: "اعتماد المشروع المؤسسي بكامل مخرجاته." }
-            ]
-        },
-        {
-            id: "TASK-06",
-            title: "التحليل النقدي ومقارنة النماذج وتصميم برنامج كوتشنج مهني",
-            category: "القيادة والتفكير النقدي",
-            linkedCompetencies: ["C401", "C402", "C405", "C602"],
-            rubricCode: "portfolio",
-            status: "approved",
-            version: "v1.1",
-            dueDate: "2026-04-18",
-            submissionDate: "2026-04-15",
-            evidences: [
-                { type: "document", name: "دراسة_التحليل_النقدي_والمقارنة_بين_4_نماذج_عالمية.pdf", pages: 32, size: "4.8 MB" },
-                { type: "document", name: "وثيقة_تصميم_برنامج_الكوتشنج_التنفيذي_المتكامل.pdf", pages: 44, size: "6.5 MB" }
-            ],
-            reflection: {
-                whatDidIDo: "أعددت دراسة نقدية مقارنة بين 4 نماذج كوتشنج عالمية (GROW, CLEAR, Solution-Focused, Co-Active)، وصممت برنامجاً تدريبياً وتطبيقياً متكاملاً لمنظمة صناعية كبرى.",
-                why: "الماستر كوتش يحتاج إلى ترقية تفكيره من الممارسة الإجرائية إلى التصميم الهيكلي للبرامج الكوتشنجية المعقدة.",
-                impact: "اعتمدت المنظمة البرنامج لتدريب 25 مديراً تنفيذياً مع تحقيق وفر مالي بنسبة 40% مقارنة بالبرامج المستوردة.",
-                whatWillIChange: "تضمين أدوات قياس العائد على الاستثمار (ROI) وفق منهجية فيليبس في النسخة القادمة من التصميم."
-            },
-            supervisorFeedback: {
-                evaluator: "الماستر كوتش عبدالكريم الخليفي",
-                date: "2026-04-19",
-                grade: 4.88,
-                audioNoteUrl: "audio_feedback_06.mp3",
-                audioDuration: "03:15",
-                notes: "تحليل منهجي عميق جداً يا أحمد، وتصميم البرنامج يبرهن على جاهزيتك التامة لقيادة المشروعات الكبرى.",
-                timestamps: [
-                    { time: "01:05", comment: "مقارنة منهجية Solution-Focused مع GROW كانت محكمة ومبتكرة." }
-                ]
-            },
-            history: [
-                { version: "v1.0", date: "2026-04-15", status: "revision_required", note: "إضافة مصفوفة المفاضلة المعيارية." },
-                { version: "v1.1", date: "2026-04-19", status: "approved", note: "الاعتماد النهائي بتقدير ممتاز." }
-            ]
-        },
-        {
-            id: "TASK-07",
-            title: "ملف تقارير دراسات الحالات العشرين ومحاكاة الأدوار المتقدمة",
-            category: "الممارسة الميدانية والمحاكاة",
-            linkedCompetencies: ["C201", "C202", "C203", "C303", "C801"],
-            rubricCode: "sessions",
-            status: "approved",
-            version: "v2.0",
-            dueDate: "2026-05-05",
-            submissionDate: "2026-05-02",
-            evidences: [
-                { type: "document", name: "الملف_الشامل_لتقارير_الحالات_العشرين_المتكاملة.pdf", pages: 110, size: "18.5 MB" },
-                { type: "video", name: "تسجيل_جلسات_المحاكاة_الرباعية_في_المختبر_4.mp4", duration: "45:00", size: "220 MB" }
-            ],
-            reflection: {
-                whatDidIDo: "وثقت ملفات الـ 20 حالة كاملة مع خطط التدخل وتقارير التشخيص، ونفذت جلسات المحاكاة التبادلية لأدوار (الماستر، المستفيد، الملاحظ، المشرف).",
-                why: "المحاكاة وتبادل الأدوار يكشف زوايا الرؤية الخفية ويعزز التعاطف التكتيكي والحضور الكوتشنجي الرصين.",
-                impact: "تلاشي أي ارتباك في التعامل مع الحالات الصعبة وإتقان الفصل بين دور المشرف ودور الممارس.",
-                whatWillIChange: "تعميق التوثيق اللحظي للمشاعر والانفعالات أثناء جلسات المحاكاة."
-            },
-            supervisorFeedback: {
-                evaluator: "الماستر كوتش عبدالكريم الخليفي",
-                date: "2026-05-06",
-                grade: 4.92,
-                audioNoteUrl: "audio_feedback_07.mp3",
-                audioDuration: "04:00",
-                notes: "ملف الحالات العشرين ثروة مهنية حقيقية، وأداؤك في المحاكاة أظهر كوتشاً يمتلك أدواته بثقة بالغة.",
-                timestamps: [
-                    { time: "02:30", comment: "إدارتك للحالة المقاومة في المحاكاة كانت نموذجاً يُدرس." }
-                ]
-            },
-            history: [
-                { version: "v1.0", date: "2026-05-02", status: "submitted", note: "إيداع ملف الحالات والمحاكاة." },
-                { version: "v2.0", date: "2026-05-06", status: "approved", note: "اعتماد الحالات بتقدير ممتاز." }
+                { version: "v1.0", date: "2026-04-28", status: "revision_required", note: "تعديل بعض التوثيقات المرجعية وفق APA7 في الفصل الثاني." },
+                { version: "v2.0", date: "2026-05-02", status: "approved", note: "الاعتماد النهائي بتقدير ممتاز." }
             ]
         },
         {
             id: "TASK-08",
-            title: "سجل ممارسة دور المشرف على الأقران وتحليل الممارسات",
-            category: "الإشراف على الممارسين",
+            title: "ملف الإنجاز المهني الشامل وسجل الإشراف المهني",
+            category: "الإشراف المهني والملف التكاملي",
             linkedCompetencies: ["C901", "C105", "C404", "C804"],
             rubricCode: "supervision",
             status: "approved",
@@ -3105,28 +3073,65 @@ const DEFAULT_PROGRAM_DATA = {
             dueDate: "2026-05-15",
             submissionDate: "2026-05-12",
             evidences: [
+                { type: "document", name: "ملف_الإنجاز_المهني_الشامل_المفهرس_نهائياً.pdf", pages: 45, size: "6.5 MB" },
                 { type: "document", name: "سجل_جلسات_الإشراف_المقدمة_للأقران_وتحليل_الأداء.pdf", pages: 36, size: "5.2 MB" },
                 { type: "audio", name: "تسجيل_جلسة_تغذية_راجعة_إشرافية_لمتدرب_PCC.mp3", duration: "40:00", size: "36 MB" }
             ],
             reflection: {
-                whatDidIDo: "مارست دور المشرف المهني على ممارسات 3 زملاء كوتشز، وحللت تسجيلاتهم وقدمت تغذية راجعة وصفية غير توجيهية مع خطط تحسين.",
-                why: "تحقيق متطلب ص26 في الحقيبة بالتحول من متلقٍ للإشراف إلى ممارس لدور المشرف الرشيد.",
+                whatDidIDo: "مارست دور المشرف المهني على ممارسات 3 زملاء كوتشز، وحللت تسجيلاتهم وقدمت تغذية راجعة وصفية غير توجيهية مع خطط تحسين، واستكملت فهرسة ملف الإنجاز الشامل.",
+                why: "تحقيق متطلب ص26 في الحقيبة بالتحول من متلقٍ للإشراف إلى ممارس لدور المشرف الرشيد، واستيفاء مراجعة الملف الختامي قبل المقابلة.",
                 impact: "أعرب الزملاء عن استبصارات فارقة في علاقتهم مع المستفيدين وتحسن في دقة أسئلتهم في الجلسات اللاحقة.",
                 whatWillIChange: "تطوير بطاقة متابعة سريعة للتحقق من التزام الممارس بتطبيق التغذية في أول جلسة تالية."
             },
             supervisorFeedback: {
                 evaluator: "الماستر كوتش عبدالكريم الخليفي",
-                date: "2026-05-16",
+                date: "2026-05-14",
                 grade: 4.95,
                 audioNoteUrl: "audio_feedback_08.mp3",
                 audioDuration: "03:50",
                 notes: "أداء إشرافي ناضج جداً يا أحمد. لغتك كانت تمكينية واستبصارية وحافظت على مساحة نمو الزميل ببراعة.",
                 timestamps: [
-                    { time: "01:40", comment: "صياغة الملاحظة حول الصمت في الدقيقة 14 كانت راقية للغاية." }
+                    { time: "01:40", comment: "صياغة الملاحظة الإشرافية كانت راقية للغاية ومحفزة للتعلم." }
                 ]
             },
             history: [
-                { version: "v1.0", date: "2026-05-12", status: "approved", note: "اعتماد سجل الإشراف بامتياز كامل." }
+                { version: "v1.0", date: "2026-05-12", status: "approved", note: "اعتماد سجل الإشراف وملف الإنجاز بامتياز كامل." }
+            ]
+        },
+        {
+            id: "TASK-07",
+            title: "مشروع التخرج الابتكاري والدفاع العلمي أمام لجنة التحكيم",
+            category: "مشروع التخرج الابتكاري",
+            linkedCompetencies: ["C601", "C602", "C603", "C604", "C605"],
+            rubricCode: "innovation_project",
+            status: "approved",
+            version: "v1.0",
+            dueDate: "2026-05-25",
+            submissionDate: "2026-05-22",
+            evidences: [
+                { type: "document", name: "ملف_مشروع_التخرج_الابتكاري_النهائي_والدفاع_العلمي.pdf", pages: 64, size: "12 MB" },
+                { type: "document", name: "ملخص_الأثر_الميداني_وتحكيم_المشروع.pdf", pages: 18, size: "2.8 MB" },
+                { type: "document", name: "محضر_إجازة_مشروع_التخرج_من_لجنة_التحكيم.pdf", pages: 4, size: "900 KB" }
+            ],
+            reflection: {
+                whatDidIDo: "صممت ونفذت مشروع التخرج الابتكاري في الكوتشنج القيادي والمؤسسي، ودمجت مقياس LMMI مع النماذج التطبيقية، ودافعت عنه أمام اللجنة العلمية.",
+                why: "يمثل مشروع التخرج تتويجاً لرحلة الزمالة وإثباتاً للجدارة والقدرة على تطوير ممارسات ونماذج أصيلة ذات أثر تطبيقي مستدام.",
+                impact: "إجازة المشروع بتقدير ممتاز مع مرتبة الشرف الأولى وتوصية اللجنة بالتطبيق المؤسسي الموسع.",
+                whatWillIChange: "متابعة قياس الأثر المؤسسي الدوري بعد 6 أشهر من التطبيق الميداني."
+            },
+            supervisorFeedback: {
+                evaluator: "الماستر كوتش عبدالكريم الخليفي",
+                date: "2026-05-24",
+                grade: 4.90,
+                audioNoteUrl: "audio_feedback_07.mp3",
+                audioDuration: "03:30",
+                notes: "إبداع حقيقي يمثل فخر برنامج الماستر كوتش. النماذج جاهزة للتطبيق المؤسسي والتدريب المهني المتقدم.",
+                timestamps: [
+                    { time: "01:45", comment: "الدفاع العلمي كان مقنعاً ومدعوماً بالبيانات الميدانية." }
+                ]
+            },
+            history: [
+                { version: "v1.0", date: "2026-05-22", status: "approved", note: "اعتماد مشروع التخرج بتقدير ممتاز." }
             ]
         }
     ],
@@ -3272,11 +3277,196 @@ const DEFAULT_PROGRAM_DATA = {
 // Storage helper functions
 const STORAGE_KEY = "TAMKEEN_MASTER_COACH_DATA_V3";
 
+function createFreshTraineeData() {
+    const fresh = JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA));
+
+    fresh.metadata.candidate = {
+        id: "MC-2026-084",
+        name: "كوتش أحمد بن صالح الشمري",
+        title: "كوتش تنفيذي مرشح (قيد التدريب الميداني)",
+        avatar: "assets/images/logo.png",
+        email: "coach@cyce52.com",
+        phone: "+966 50 123 4567",
+        enrollmentDate: "2026-01-15",
+        supervisorName: "الماستر كوتش عبدالكريم الخليفي",
+        committeeChair: "د. عبدالكريم الخليفي",
+        currentStanding: "متدرب جديد - بانتظار إيداع الأدلة والمهام والتطبيقات الميدانية"
+    };
+
+    fresh.metadata.prerequisites = {
+        status: "pending",
+        title: "مراجعة مخرجات CPC وPCC أو ما يعادلهما",
+        evidence: "بانتظار تدقيق السجل المهني للاعتماد السابق",
+        auditDate: null,
+        auditor: "الماستر كوتش عبدالكريم الخليفي"
+    };
+
+    fresh.metadata.fieldFollowup = {
+        durationMonths: 0,
+        startDate: "2026-02-01",
+        endDate: "2026-04-30",
+        status: "in_progress",
+        evidence: "المتابعة الميدانية قيد التنفيذ"
+    };
+
+    fresh.metadata.mediaDeclaration = {
+        status: "pending",
+        title: "المواد الصوتية والمرئية المقررة بالحقيبة",
+        details: "بانتظار استكمال الاستماع والمشاهدة لكافة المحاضرات المعتمدة",
+        statementSigned: false,
+        signDate: null
+    };
+
+    fresh.metadata.periodicAssessments = {
+        status: "pending",
+        title: "التقييمات النظرية والتطبيقية والمرحلية",
+        averageScore: 0,
+        verdict: "قيد المتابعة واستكمال الاختبارات المرحلية"
+    };
+
+    // 0 Completed Hours
+    fresh.hours.forEach(h => {
+        h.completed = 0;
+        h.status = "in_progress";
+    });
+
+    // 0 Cases & Sessions
+    fresh.cases = [];
+    fresh.sessions = [];
+
+    // 0 Tools
+    fresh.toolsSummary.mbti.completed = 0;
+    fresh.toolsSummary.mbti.applications = [];
+    fresh.toolsSummary.wheelOfLife.completed = 0;
+    fresh.toolsSummary.wheelOfLife.applications = [];
+    fresh.toolsSummary.swot.completed = 0;
+    fresh.toolsSummary.swot.applications = [];
+
+    // 0 Models & Recordings
+    fresh.innovativeModels = [];
+    fresh.professionalRecordings = [];
+
+    fresh.innovativeTool = {
+        name: "بانتظار إيداع وتطوير الأداة المبتكرة",
+        status: "pending",
+        purpose: "بانتظار تحديد الغرض والمنهجية العلمية للأداة من قبل المتدرب.",
+        boundaries: "بانتظار توثيق الحدود المهنية ومحددات التطبيق.",
+        verificationMechanism: "بانتظار إجراء التحقق السيكومتري والميداني."
+    };
+    fresh.personalityTool = fresh.innovativeTool;
+
+    fresh.orgPreparation = {
+        orgName: "بانتظار تحديد المؤسسة المستهدفة",
+        sector: "مشروع تهيئة مؤسسة للكوتشنج (قيد الإعداد)",
+        status: "pending",
+        phases: []
+    };
+
+    fresh.researchPaper = {
+        title: "بانتظار تسليم الورقة العلمية التطبيقية",
+        totalPages: 0,
+        status: "draft"
+    };
+
+    fresh.graduationProject = {
+        title: "بانتظار تسليم المشروع الابتكاري النهائي",
+        status: "draft",
+        juryVerdict: "بانتظار المناقشة والدفاع العلمي"
+    };
+
+    // Tasks: All in draft status with 0 evidences and blank reflection
+    fresh.tasks.forEach(t => {
+        t.status = "draft";
+        t.version = "v1.0";
+        t.evidences = [];
+        t.reflection = {
+            whatDidIDo: "",
+            why: "",
+            impact: "",
+            whatWillIChange: ""
+        };
+        t.supervisorFeedback = null;
+        t.history = [
+            {
+                version: "v1.0",
+                date: new Date().toISOString().split('T')[0],
+                status: "draft",
+                note: "مهمة جديدة جاهزة لإيداع الأدلة واستمارة التأمل الرباعية."
+            }
+        ];
+    });
+
+    // Rubrics: Set to initial baseline competent state (not failing < 3)
+    fresh.rubrics.forEach(r => {
+        r.criteria.forEach(c => {
+            c.currentLevel = 3;
+            c.evidence = "";
+            c.supervisorFeedback = "";
+            c.requiredImprovement = "بانتظار التسليم الأول والمراجعة الإشرافية بالروبرك.";
+        });
+    });
+
+    // Ethics Gate
+    fresh.ethicsGate.status = "pending";
+    fresh.ethicsGate.clearanceBadge = "متطلب تخرج نظامي (قيد الاستيفاء والتدقيق)";
+    fresh.ethicsGate.summary = "بانتظار استيفاء نقاط الفحص الأخلاقي والتدقيق الإشرافي المباشر.";
+    fresh.ethicsGate.checkpoints.forEach(cp => {
+        cp.status = "pending";
+        cp.clearedBy = null;
+        cp.clearedAt = null;
+    });
+    fresh.ethicsGate.referralRegistry = [];
+
+    // Competencies: Initial status
+    fresh.competencies.forEach(c => {
+        c.status = "in_progress";
+        c.evidenceCount = 0;
+    });
+
+    // Core 14 Domains
+    if (Array.isArray(fresh.core14Domains)) {
+        fresh.core14Domains.forEach(d => {
+            d.masteryLevel = 1;
+            d.status = "in_progress";
+            d.progressPct = 0;
+        });
+    }
+
+    // Dynamic Certificate & Audit Rows (Fresh trainee state)
+    if (fresh.certificateConfig && Array.isArray(fresh.certificateConfig.rows)) {
+        fresh.certificateConfig.rows.forEach(r => {
+            r.achieved = "0 " + (r.target.includes("ساعة") ? "ساعة" : r.target.includes("حالة") ? "حالة" : r.target.includes("جلسة") ? "جلسة" : r.target.includes("تطبيق") ? "تطبيق" : r.target.includes("نماذج") ? "نماذج" : r.target.includes("تسجيل") ? "تسجيلات" : r.target.includes("صفحة") ? "صفحة" : "");
+            r.achieved = r.achieved.trim() || "قيد الاستيفاء";
+            r.verdict = "متطلب تخرج نظامي (قيد الاستيفاء)";
+            r.status = "pending";
+        });
+    }
+
+    return fresh;
+}
+
+let _nodeMemoryStore = null;
+
 function loadProgramData() {
+    // In Node.js environment (automated test runner):
+    if (typeof window === 'undefined' || typeof window.document === 'undefined') {
+        if (_nodeMemoryStore) {
+            return JSON.parse(JSON.stringify(_nodeMemoryStore));
+        }
+        return JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA));
+    }
+
     try {
+        const mode = localStorage.getItem("TAMKEEN_DATA_MODE") || 'fresh';
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
+            const isStored100Percent = parsed.tasks && parsed.tasks.length > 0 && parsed.tasks.every(t => t.status === 'approved');
+            if (mode === 'fresh' && isStored100Percent) {
+                const fresh = createFreshTraineeData();
+                saveProgramData(fresh);
+                return fresh;
+            }
             if (!parsed.core14Domains || !Array.isArray(parsed.core14Domains) || parsed.core14Domains.length !== 14) {
                 parsed.core14Domains = JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA.core14Domains));
             }
@@ -3285,13 +3475,27 @@ function loadProgramData() {
             }
             return parsed;
         }
+
+        if (mode === 'demo') {
+            const demo = JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA));
+            saveProgramData(demo);
+            return demo;
+        } else {
+            const fresh = createFreshTraineeData();
+            saveProgramData(fresh);
+            return fresh;
+        }
     } catch (e) {
-        console.warn("Could not load from localStorage, using default data.", e);
+        console.warn("Could not load from localStorage, using fresh data.", e);
+        return createFreshTraineeData();
     }
-    return JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA));
 }
 
 function saveProgramData(data) {
+    if (typeof window === 'undefined' || typeof window.document === 'undefined') {
+        _nodeMemoryStore = JSON.parse(JSON.stringify(data));
+        return true;
+    }
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         return true;
@@ -3301,28 +3505,50 @@ function saveProgramData(data) {
     }
 }
 
-function resetToDefaultData() {
+function resetToFresh() {
     try {
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.setItem("TAMKEEN_DATA_MODE", "fresh");
     } catch (e) {
         console.warn(e);
     }
-    return JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA));
+    const fresh = createFreshTraineeData();
+    saveProgramData(fresh);
+    return fresh;
+}
+
+function resetToDemo() {
+    try {
+        localStorage.setItem("TAMKEEN_DATA_MODE", "demo");
+    } catch (e) {
+        console.warn(e);
+    }
+    const demo = JSON.parse(JSON.stringify(DEFAULT_PROGRAM_DATA));
+    saveProgramData(demo);
+    return demo;
+}
+
+function resetToDefaultData(mode = 'default') {
+    return mode === 'fresh' ? resetToFresh() : resetToDemo();
 }
 
 // Export to window / global / module
 const ProgramStore = {
     DEFAULT_DATA: DEFAULT_PROGRAM_DATA,
+    createFreshTraineeData: createFreshTraineeData,
     load: loadProgramData,
     save: saveProgramData,
-    reset: resetToDefaultData
+    reset: resetToDefaultData,
+    resetToFresh: resetToFresh,
+    resetToDemo: resetToDemo
 };
 
 if (typeof window !== 'undefined') {
     window.ProgramStore = ProgramStore;
+    window.createFreshTraineeData = createFreshTraineeData;
 }
 if (typeof global !== 'undefined') {
     global.ProgramStore = ProgramStore;
+    global.createFreshTraineeData = createFreshTraineeData;
 }
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ProgramStore;

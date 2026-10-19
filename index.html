@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="icon" type="image/png" href="assets/images/logo.png">
 </head>
-<body class="theme-light">
+<body class="theme-light role-participant">
 
     <!-- Accessibility Skip Link -->
     <a href="#main-content-container" class="skip-link">تخطي إلى المحتوى الرئيسي</a>
@@ -29,7 +29,6 @@
                 <div class="brand-title-wrap">
                     <div class="brand-title">
                         <h1 class="brand-title-heading" style="font-size:inherit; font-weight:inherit; margin:0; display:inline;">منصة كفايات الماستر كوتش</h1>
-                        <span class="badge-version">v3.0 التطويرية</span>
                     </div>
                     <div class="brand-subtitle">
                         <span>شركة تمكين الرؤية للاستشارات المهنية</span>
@@ -41,21 +40,63 @@
 
             <!-- Header Action Controls -->
             <div class="header-actions">
+                <!-- Public Landing Navigation (Visible for guests/visitors) -->
+                <nav id="landing-public-nav" class="landing-public-nav" style="display:none;" aria-label="أقسام الحقيبة التدريبية">
+                    <a href="#landing-curriculum" class="landing-nav-link">المحاور الـ 8</a>
+                    <a href="#landing-hours" class="landing-nav-link">رحلة الـ 240 ساعة</a>
+                    <a href="#landing-deliverables" class="landing-nav-link">المخرجات الـ 90</a>
+                    <a href="#landing-accreditation" class="landing-nav-link">الاعتماد والشهادة</a>
+                    <a href="#landing-instructor" class="landing-nav-link">الماستر كوتش</a>
+                    <a href="#landing-faq" class="landing-nav-link">الأسئلة الشائعة</a>
+                </nav>
+
                 <!-- User Session & Authentication Bar -->
                 <div id="user-session-widget" class="user-session-widget"></div>
 
-                <!-- Role Switcher -->
-                <div class="role-switcher-box">
-                    <label for="select-role" class="role-label">وضع الاستعراض:</label>
-                    <select id="select-role" class="role-select" aria-label="تبديل صفة المستخدم">
-                        <option value="participant">المشارك (كوتش متدرب)</option>
-                        <option value="supervisor">المشرف والمقيم المعتمد</option>
-                        <option value="committee">اللجنة العلمية وإدارة الاعتماد</option>
-                    </select>
+                <!-- Hidden role-select for programmatic test compatibility -->
+                <select id="select-role" style="display:none;" aria-hidden="true">
+                    <option value="participant">المشارك (كوتش متدرب)</option>
+                    <option value="supervisor">المشرف والمقيم المعتمد</option>
+                    <option value="committee">اللجنة العلمية وإدارة الاعتماد</option>
+                </select>
+
+                <!-- Network Status Placeholder (Hidden to eliminate UI noise) -->
+                <div id="network-status-badge" class="network-status-badge online" style="display:none !important;" onclick="window.App.checkNetworkConnection ? window.App.checkNetworkConnection(true) : null" role="status" aria-live="polite">
+                    <span class="status-ping-dot"></span>
+                    <span class="network-status-text" id="network-status-text" style="display:none;"></span>
                 </div>
 
-                <!-- Export Data JSON -->
-                <button id="btn-export-data" class="btn-icon-action" title="تصدير نسخة احتياطية من البيانات JSON" aria-label="تصدير البيانات">
+                <!-- Live Notifications Hub Bell -->
+                <div class="notification-hub-wrapper" id="notification-hub-wrapper">
+                    <button id="btn-notifications" class="btn-icon-action btn-notifications" title="مركز الإشعارات والتنبيهات الإشرافية" aria-label="الإشعارات والتنبيهات" aria-expanded="false">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span id="notification-badge" class="notification-badge pulse" style="display:none;">0</span>
+                    </button>
+                    <div id="notification-dropdown" class="notification-dropdown" style="display:none;" role="region" aria-label="قائمة التنبيهات الإشرافية"></div>
+                </div>
+
+                <!-- Official Certificate Generator & Viewer Button -->
+                <button id="btn-certificate-viewer" class="btn-icon-action" title="استعراض وطباعة شهادة التخرج والاعتماد الرسمية" aria-label="شهادة التخرج الرسمية">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="8" r="6"></circle>
+                        <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path>
+                    </svg>
+                </button>
+
+                <!-- Interactive Guided Tour Button ("i") -->
+                <button id="btn-tour-info" class="btn-icon-action" title="جولة إرشادية تفاعلية" aria-label="جولة إرشادية تفاعلية">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                </button>
+
+                <!-- Export Data -->
+                <button id="btn-export-data" class="btn-icon-action" title="تصدير نسخة احتياطية من البيانات" aria-label="تصدير البيانات">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="7 10 12 15 17 10"></polyline>
@@ -63,8 +104,8 @@
                     </svg>
                 </button>
 
-                <!-- Reset Demo Data -->
-                <button id="btn-reset-data" class="btn-icon-action" title="استعادة البيانات النموذجية الافتراضية" aria-label="استعادة البيانات">
+                <!-- Reset / Sync Data -->
+                <button id="btn-reset-data" class="btn-icon-action" title="تحديث ومزامنة البيانات" aria-label="تحديث ومزامنة البيانات">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="1 4 1 10 7 10"></polyline>
                         <polyline points="23 20 23 14 17 14"></polyline>
@@ -100,39 +141,47 @@
     </header>
 
     <!-- Executive Quick Status Strip -->
-    <div class="quick-status-strip">
+    <div class="quick-status-strip" id="nav-status-strip">
         <div class="status-strip-inner">
             <div class="candidate-mini-info">
                 <div class="candidate-avatar" id="candidate-avatar-initials">MC</div>
                 <div>
                     <strong id="candidate-name-text">كوتش أحمد بن صالح الشمري</strong>
-                    <span id="candidate-role-text" style="color:#94A3B8; font-size:0.75rem; margin-right:6px;">كوتش تنفيذي معتمد (PCC) • MC-2026-084</span>
+                    <span id="candidate-role-text" style="color:#94A3B8; font-size:0.75rem; margin-right:6px;">كوتش تنفيذي مرشح (قيد التدريب الميداني) • MC-2026-084</span>
                 </div>
             </div>
 
             <div class="status-metrics-group">
-                <div class="status-metric-pill">
+                <div class="status-metric-pill pill-passive-hours">
                     <span>الساعات:</span>
-                    <strong id="strip-hours-val">240 / 240 س</strong>
+                    <strong id="strip-hours-val">0 / 240 س</strong>
                 </div>
                 <div class="status-metric-pill">
                     <span>الحالات:</span>
-                    <strong id="strip-cases-val">20 / 20 حالة</strong>
+                    <strong id="strip-cases-val">0 / 20 حالة</strong>
                 </div>
                 <div class="status-metric-pill">
                     <span>الجلسات:</span>
-                    <strong id="strip-sessions-val">30 / 30 جلسة</strong>
+                    <strong id="strip-sessions-val">0 / 30 جلسة</strong>
                 </div>
                 <div class="status-metric-pill">
-                    <span>الأدوات (90):</span>
-                    <strong id="strip-tools-val">90 / 90 تطبيق</strong>
+                    <span>تطبيقات الأدوات:</span>
+                    <strong id="strip-tools-val">MBTI: 0/30 • عجلة: 0/30 • SWOT: 0/30</strong>
                 </div>
-                <div class="status-metric-pill emerald">
+                <div class="status-metric-pill pill-passive-comps">
                     <span>الكفايات:</span>
-                    <strong id="strip-comps-val">43 / 43 متحققة</strong>
+                    <strong id="strip-comps-val">0 / 43 + 0/1 إشراف</strong>
+                </div>
+                <div class="status-metric-pill pill-action-recordings" id="strip-recordings-pill">
+                    <span>التسجيلات:</span>
+                    <strong id="strip-recordings-val">0 / 5 تسجيلات</strong>
+                </div>
+                <div class="status-metric-pill pill-action-tasks" id="strip-tasks-pill">
+                    <span>بنك المهام:</span>
+                    <strong id="strip-tasks-val">0 / 8 معتمدة</strong>
                 </div>
                 <div class="status-metric-pill" id="strip-ethics-val">
-                    <span class="ethics-pill-pass">اجتياز معتمد 100%</span>
+                    <span class="badge-status" style="background:rgba(217, 119, 6, 0.12); color:var(--accent-gold, #D97706); font-weight:600; border:1px solid rgba(217, 119, 6, 0.3); font-size:0.75rem;">متطلب تخرج نظامي</span>
                 </div>
             </div>
         </div>
@@ -140,69 +189,819 @@
 
     <!-- Main Navigation Bar (Tabs) -->
     <nav class="main-nav-bar" aria-label="أقسام المنصة الرئيسية">
-        <div class="nav-tabs-container">
+        <div class="nav-tabs-container" role="tablist" aria-label="تبويبات المنصة">
             <!-- View Mode Switcher -->
-            <div class="view-mode-toggle" id="view-mode-toggle" title="نمط عرض لوحة الكوتش">
-                <button class="view-mode-btn active" id="btn-mode-onepage" onclick="window.App.setViewMode('onepage')">
+            <div class="view-mode-toggle" id="view-mode-toggle" title="نمط عرض لوحة الكوتش" role="group" aria-label="نمط عرض لوحة الكوتش">
+                <button class="view-mode-btn active" id="btn-mode-onepage" onclick="window.App.setViewMode('onepage')" aria-pressed="true" title="صفحة موحدة (المتدرب)">
                     <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:5px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                     <span>صفحة موحدة (المتدرب)</span>
                 </button>
-                <button class="view-mode-btn" id="btn-mode-tabs" onclick="window.App.setViewMode('tabs')">
+                <button class="view-mode-btn" id="btn-mode-tabs" onclick="window.App.setViewMode('tabs')" aria-pressed="false" title="تبويبات منفصلة">
                     <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:5px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
                     <span>تبويبات منفصلة</span>
                 </button>
             </div>
 
-            <button class="nav-tab-btn active" data-tab="dashboard">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <button class="nav-tab-btn active" data-tab="dashboard" role="tab" aria-selected="true" title="المؤشرات والتقدم">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                 <span>المؤشرات والتقدم</span>
             </button>
-            <button class="nav-tab-btn" data-tab="tasks">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                <span>المهام والأدلة</span>
-                <span class="tab-badge">8</span>
+            <button class="nav-tab-btn" data-tab="quant" role="tab" aria-selected="false" title="المتطلبات الميدانية والتسليمات">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span>المتطلبات والتسليمات</span>
             </button>
-            <button class="nav-tab-btn" data-tab="quant">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                <span>الأدوات (90) والحالات</span>
-                <span class="tab-badge">240h</span>
+            <button class="nav-tab-btn" data-tab="tasks" role="tab" aria-selected="false" title="سجل تدقيق المهام">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <span>سجل تدقيق المهام</span>
             </button>
-            <button class="nav-tab-btn" data-tab="chat" id="tab-nav-chat" onclick="window.ChatWidget ? window.ChatWidget.toggle() : (window.App && window.App.toggleChatDrawer ? window.App.toggleChatDrawer() : null)">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <button class="nav-tab-btn" data-tab="chat" id="tab-nav-chat" role="tab" aria-selected="false" title="المحادثة والتوجيه" onclick="window.ChatWidget ? window.ChatWidget.toggle() : (window.App && window.App.toggleChatDrawer ? window.App.toggleChatDrawer() : null)">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 <span>المحادثة والتوجيه</span>
-                <span class="tab-badge" id="chat-nav-badge" style="background:var(--brand-emerald); color:#fff;">مباشر</span>
+                <span class="tab-badge" id="chat-nav-badge" style="display:none;"></span>
             </button>
-            <button class="nav-tab-btn" data-tab="rubrics">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <button class="nav-tab-btn" data-tab="rubrics" role="tab" aria-selected="false" title="الروبركات الـ 6">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 <span>الروبركات الـ 6</span>
-                <span class="tab-badge">6</span>
             </button>
-            <button class="nav-tab-btn" data-tab="competencies">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <button class="nav-tab-btn" data-tab="competencies" role="tab" aria-selected="false" title="الكفايات الـ 14">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 <span>الكفايات الـ 14</span>
-                <span class="tab-badge">43</span>
             </button>
-            <button class="nav-tab-btn" data-tab="ethics">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <button class="nav-tab-btn" data-tab="ethics" role="tab" aria-selected="false" title="السلامة الأخلاقية">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                 <span>السلامة الأخلاقية</span>
-                <span class="tab-badge" style="background:var(--status-emerald); color:#fff;">مستقلة</span>
             </button>
-            <button class="nav-tab-btn" data-tab="labs">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><path d="M9 3h12"></path></svg>
+            <button class="nav-tab-btn" data-tab="labs" role="tab" aria-selected="false" title="المختبرات والتميز">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><path d="M9 3h12"></path></svg>
                 <span>المختبرات والتميز</span>
-                <span class="tab-badge">9</span>
             </button>
-            <button class="nav-tab-btn" data-tab="report">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+            <button class="nav-tab-btn" data-tab="report" role="tab" aria-selected="false" title="محضر الاعتماد">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                 <span>محضر الاعتماد</span>
             </button>
-            <button class="nav-tab-btn" data-tab="admin-dashboard" id="tab-admin-dashboard" style="display:none;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <button class="nav-tab-btn" data-tab="admin-dashboard" id="tab-admin-dashboard" role="tab" aria-selected="false" title="لوحة قيادة الماستر كوتش (الإدارة)" style="display:none;">
+                <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 <span>لوحة قيادة الماستر كوتش (الإدارة)</span>
-                <span class="tab-badge" style="background:var(--brand-gold); color:#000;">إشراف</span>
             </button>
         </div>
     </nav>
+
+    <!-- Guest Demo Preview Banner (Shown only when an unauthenticated visitor previews the interactive workspace) -->
+    <div id="guest-preview-banner" class="guest-preview-banner" style="display:none;" role="region" aria-label="شريط المعاينة الاستكشافية">
+        <div class="guest-preview-banner-inner">
+            <div class="guest-preview-info">
+                <span class="status-ping-dot" style="background:#10B981; margin-left:6px;"></span>
+                <strong style="color:var(--text-primary); font-size:0.88rem;">نمط المعاينة الاستكشافية:</strong>
+                <span style="color:var(--text-secondary); font-size:0.83rem;">أنت تستعرض حالياً منصة الماستر كوتش التفاعلية كزائر. يمكنك الاطلاع على السجلات والمهام والأدوات بحرية كاملة.</span>
+            </div>
+            <div class="guest-preview-actions">
+                <button type="button" class="btn-xs btn-emerald" onclick="window.App.openAuthModal('register')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:4px; vertical-align:-1px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                    انضم للبرنامج واحصل على رقمك التدريبي
+                </button>
+                <button type="button" class="btn-xs btn-outline" onclick="window.App.toggleGuestPreview(false)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:4px; vertical-align:-1px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    العودة لصفحة الحقيبة التدريبية
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Marketing-Grade Premium Public Landing Page (Showcasing Comprehensive Training Bag) -->
+    <div id="public-landing-page" class="public-landing-page" style="display:none;">
+
+        <!-- 1. High-Converting Hero Section -->
+        <section id="landing-hero" class="landing-hero-section">
+            <div class="landing-hero-backdrop"></div>
+            <div class="landing-container">
+                <div class="landing-hero-content">
+                    <div class="landing-badge-pill">
+                        <span class="badge-dot"></span>
+                        <span class="badge-text">النسخة التطويرية 2026 • برنامج إعداد وتأهيل الماستر كوتش • الإصدار 3.0</span>
+                    </div>
+
+                    <h1 class="landing-hero-title">
+                        منظومة إعداد وتأهيل الماستر كوتش
+                        <span class="landing-title-highlight">الريادة المهنية والأكاديمية في الكوتشنج القيادي والمؤسسي</span>
+                    </h1>
+
+                    <p class="landing-hero-subtitle">
+                        الحقيبة التدريبية المهنية الأرفع لإعداد قادة وممارسي الكوتشنج في العالم العربي — إعداد <strong>الماستر كوتش عبدالكريم الخليفي</strong>، بالتعاون مع <strong>شركة تمكين الرؤية للاستشارات المهنية</strong> والمقدمة للاعتماد لدى <strong>الاتحاد العربي للكوتشنج</strong>. رحلة تكاملية من <strong>240 ساعة معتمدة</strong>، تغطي <strong>8 محاور استراتيجية</strong> و <strong>44 كفاية مهنية</strong>، و <strong>90 تطبيقاً قياسياً</strong>، مع <strong>بوابة سلامة أخلاقية قطعية</strong> تضمن جودة الممارسة والاعتماد.
+                    </p>
+
+                    <div class="landing-hero-ctas">
+                        <button type="button" class="btn-landing-primary" onclick="window.App.openAuthModal('register')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                            <span>انضم الآن للبرنامج — احصل على رقمك التدريبي الأكاديمي</span>
+                        </button>
+                        <a href="#landing-curriculum" class="btn-landing-secondary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                            <span>استعراض محتويات الحقيبة التدريبية</span>
+                        </a>
+                        <button type="button" class="btn-landing-ghost" onclick="window.App.openAuthModal('login')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <span>تسجيل الدخول للمنصة</span>
+                        </button>
+                        <button type="button" class="btn-landing-preview" onclick="window.App.toggleGuestPreview(true)" title="استعراض المنصة التفاعلية ولوحة الكوتش المتدرب">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <span>معاينة المنصة التفاعلية (Demo)</span>
+                        </button>
+                    </div>
+
+                    <!-- Trust Bar / Key Quantified Pillars Strip -->
+                    <div class="landing-stats-grid">
+                        <div class="landing-stat-card">
+                            <div class="stat-num">240</div>
+                            <div class="stat-unit">ساعة معتمدة</div>
+                            <div class="stat-desc">تدريب مباشر، مختبرات، ممارسة، إشراف، أوراق بحثية</div>
+                        </div>
+                        <div class="landing-stat-card">
+                            <div class="stat-num">8 / 44</div>
+                            <div class="stat-unit">محاور وكفايات تخصصية</div>
+                            <div class="stat-desc">تغطية تامة لكافة مجالات الكوتشنج التنفيذي والتحليلي</div>
+                        </div>
+                        <div class="landing-stat-card">
+                            <div class="stat-num">90</div>
+                            <div class="stat-unit">تطبيقاً قياسياً موثقاً</div>
+                            <div class="stat-desc">30 MBTI + 30 عجلة الحياة + 30 SWOT بدون تكرار</div>
+                        </div>
+                        <div class="landing-stat-card">
+                            <div class="stat-num">20 / 30</div>
+                            <div class="stat-unit">حالة وجلسة ميدانية</div>
+                            <div class="stat-desc">مشاريع وتدخلات كوتشنج حقيقية موثقة على مدار 3 أشهر</div>
+                        </div>
+                        <div class="landing-stat-card">
+                            <div class="stat-num">6</div>
+                            <div class="stat-unit">روبركات تدقيق محكمة</div>
+                            <div class="stat-desc">تقييم معياري بالأدلة والشواهد لا بالأحكام الجزافية</div>
+                        </div>
+                        <div class="landing-stat-card">
+                            <div class="stat-num">100%</div>
+                            <div class="stat-unit">بوابة سلامة أخلاقية</div>
+                            <div class="stat-desc">حوكمة قطعية ومستقلة لحماية المستفيدين وسرية الممارسة</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. The 8 Core Curriculum Domains & 44 Competencies Explorer -->
+        <section id="landing-curriculum" class="landing-section">
+            <div class="landing-container">
+                <div class="landing-section-header">
+                    <span class="landing-section-pill">المصفوفة الأكاديمية والمهنية الرسمية</span>
+                    <h2 class="landing-section-title">المحاور الثمانية والكفايات التخصصية الـ 44</h2>
+                    <p class="landing-section-desc">
+                        تتوزع كفايات برنامج إعداد وتأهيل الماستر كوتش 3.0 عبر 8 مجالات رئيسية تضم 43 كفاية فرعية تخصصية بالإضافة إلى كفاية الإشراف المهني على الممارسين، مع ربط كل كفاية بالشواهد العملية وروبركات التحكيم.
+                    </p>
+                </div>
+
+                <!-- Interactive Curriculum Explorer Toolbar -->
+                <div class="landing-curriculum-toolbar">
+                    <div class="landing-curriculum-search-box">
+                        <span class="landing-search-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </span>
+                        <input type="text" id="landing-curriculum-search" placeholder="ابحث في محاور الحقيبة، الكفايات التخصصية، أو الشواهد وروبركات التقييم..." oninput="window.App.filterLandingDomains(this.value)" />
+                    </div>
+                    <div class="landing-domain-tabs" role="tablist" aria-label="تصفية محاور الحقيبة">
+                        <button type="button" class="landing-tab-pill active" onclick="window.App.filterLandingDomainsByTag('all', this)">كافة المحاور (الكل)</button>
+                        <button type="button" class="landing-tab-pill" onclick="window.App.filterLandingDomainsByTag('D1', this)">D1 • المهنية الأساسية</button>
+                        <button type="button" class="landing-tab-pill" onclick="window.App.filterLandingDomainsByTag('D2', this)">D2 • التحليلية</button>
+                        <button type="button" class="landing-tab-pill" onclick="window.App.filterLandingDomainsByTag('D3', this)">D3 • التطبيقية</button>
+                        <button type="button" class="landing-tab-pill" onclick="window.App.filterLandingDomainsByTag('D4', this)">D4 • التفكير والقيادة</button>
+                        <button type="button" class="landing-tab-pill" onclick="window.App.filterLandingDomainsByTag('D5', this)">D5 • البحثية</button>
+                        <button type="button" class="landing-tab-pill" onclick="window.App.filterLandingDomainsByTag('D6', this)">D6 • الابتكار</button>
+                        <button type="button" class="landing-tab-pill" onclick="window.App.filterLandingDomainsByTag('D7', this)">D7 • الذكاء الاصطناعي</button>
+                        <button type="button" class="landing-tab-pill critical" onclick="window.App.filterLandingDomainsByTag('D8', this)">D8 • الأخلاقية (بوابة قطعية)</button>
+                    </div>
+                </div>
+
+                <div class="domains-cards-grid">
+                    <!-- Domain 1 -->
+                    <div class="domain-showcase-card" data-domain-tag="D1">
+                        <div class="domain-card-header">
+                            <span class="domain-tag">المحور الأول • D1</span>
+                            <span class="domain-count">6 كفايات</span>
+                        </div>
+                        <h3 class="domain-card-title">الكفايات المهنية الأساسية</h3>
+                        <p class="domain-card-desc">إتقان أسس وضوابط الممارسة المهنية وبناء علاقات التعاقد وإدارة الجلسات المعقدة بحضور قيادي وأخلاقي رفيع.</p>
+                        <ul class="domain-competencies-list">
+                            <li>ممارسة الكوتشنج وفق المعايير المهنية والأخلاقية</li>
+                            <li>بناء العلاقة المهنية وإدارة التعاقد المؤسسي</li>
+                            <li>إدارة الجلسات بكفاءة وتوجيه النتائج</li>
+                            <li>الاستماع العميق، الحضور والتساؤل الفعال</li>
+                            <li>تقديم التغذية الراجعة المهنية البناءة</li>
+                            <li>إنهاء العلاقة التعاقدية وفق الضوابط الأخلاقية</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong>الشاهد والأداة:</strong> تسجيل صوتي أو ملاحظة حية + عقد الجلسة + تقرير الجلسة + خطة المتابعة (روبرك الجلسات)
+                        </div>
+                    </div>
+
+                    <!-- Domain 2 -->
+                    <div class="domain-showcase-card" data-domain-tag="D2">
+                        <div class="domain-card-header">
+                            <span class="domain-tag">المحور الثاني • D2</span>
+                            <span class="domain-count">5 كفايات</span>
+                        </div>
+                        <h3 class="domain-card-title">الكفايات التحليلية</h3>
+                        <p class="domain-card-desc">تشخيص دقيق للحالات والمنظمات، وفصل الوقائع عن التفسيرات، وتحديد الأسباب الجذرية بدلاً من الاكتفاء بالأعراض السطحية.</p>
+                        <ul class="domain-competencies-list">
+                            <li>تحليل الحالات الكوتشنجية بصورة منهجية</li>
+                            <li>تشخيص التحديات والفرص الكامنة</li>
+                            <li>التمييز بين الأعراض والأسباب الجذرية</li>
+                            <li>اختيار النموذج والتدخل الملائم للحالة</li>
+                            <li>تقييم البدائل واتخاذ القرارات المبررة</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong>الشاهد والأداة:</strong> تقرير دراسة حالة يفصل الوقائع عن الآراء مع تبرير اختيار التدخل ومناقشة القرار
+                        </div>
+                    </div>
+
+                    <!-- Domain 3 -->
+                    <div class="domain-showcase-card" data-domain-tag="D3">
+                        <div class="domain-card-header">
+                            <span class="domain-tag">المحور الثالث • D3</span>
+                            <span class="domain-count">5 كفايات</span>
+                        </div>
+                        <h3 class="domain-card-title">الكفايات التطبيقية</h3>
+                        <p class="domain-card-desc">التوظيف الفعال للأدوات التشخيصية والاستكشافية المعتمدة (MBTI، عجلة الحياة، SWOT) وتكييفها بمرونة حسب احتياج المستفيد.</p>
+                        <ul class="domain-competencies-list">
+                            <li>تصميم التدخلات الكوتشنجية الفردية والمؤسسية</li>
+                            <li>توظيف النماذج بكفاءة وعمق منهجي</li>
+                            <li>إدارة الحالات المركبة والمعقدة</li>
+                            <li>تكييف الأدوات لاحتياجات المستفيد الميداني</li>
+                            <li>توثيق الممارسة وفق المعايير المعتمدة عالمياً</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong>الشاهد والأداة:</strong> 90 تطبيقاً موثقاً للأدوات الثلاث (30 لكل أداة) مع خطط عمل وإجراءات متابعة
+                        </div>
+                    </div>
+
+                    <!-- Domain 4 -->
+                    <div class="domain-showcase-card featured" data-domain-tag="D4">
+                        <div class="domain-card-header">
+                            <span class="domain-tag">المحور الرابع • D4</span>
+                            <span class="domain-count">6 كفايات + كفاية الإشراف</span>
+                        </div>
+                        <h3 class="domain-card-title">كفايات التفكير والقيادة المهنية</h3>
+                        <p class="domain-card-desc">امتلاك الماستر كوتش لأدوات التفكير النقدي والمنظومي والتأملي، والقدرة على الإشراف على ممارسي الكوتشنج وقيادة المبادرات التطويرية.</p>
+                        <ul class="domain-competencies-list">
+                            <li>التفكير النقدي ومراجعة الافتراضات والتفسيرات</li>
+                            <li>التفكير المنظومي وقراءة العلاقات والسياق المؤثر</li>
+                            <li>التفكير التأملي الرباعي الدوري</li>
+                            <li>الإشراف الذاتي والتعلم المستمر</li>
+                            <li>قيادة المبادرات التطويرية والمشاريع النوعية</li>
+                            <li>إدارة فرق العمل التطويرية بكفاءة</li>
+                            <li><strong>كفاية الإشراف:</strong> تقديم الإشراف المهني الفردي والجماعي للممارسين</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong>الشاهد والأداة:</strong> خارطة منظومية + استمارة التأمل الرباعي + خطة مبادرة + جلسات الإشراف الحي
+                        </div>
+                    </div>
+
+                    <!-- Domain 5 -->
+                    <div class="domain-showcase-card" data-domain-tag="D5">
+                        <div class="domain-card-header">
+                            <span class="domain-tag">المحور الخامس • D5</span>
+                            <span class="domain-count">5 كفايات</span>
+                        </div>
+                        <h3 class="domain-card-title">الكفايات البحثية</h3>
+                        <p class="domain-card-desc">التأسيس الأكاديمي الرصين للممارسة من خلال قراءة البحوث العالمية، وإعداد ورقة علمية تطبيقية محكمة تسهم في إثراء المعرفة الكوتشنجية.</p>
+                        <ul class="domain-competencies-list">
+                            <li>قراءة الدراسات والأدبيات العلمية ونقدها</li>
+                            <li>توظيف نتائج البحوث والدراسات في الممارسة</li>
+                            <li>إعداد الورقة العلمية التطبيقية (50 صفحة فأكثر)</li>
+                            <li>توثيق المراجع بنظام APA الإصدار السابع</li>
+                            <li>عرض ومناقشة نتائج البحث أمام المؤتمرات والندوات</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong>الشاهد والأداة:</strong> الورقة العلمية في 4 مراحل معتمدة + دليل العرض والمناقشة العلمية
+                        </div>
+                    </div>
+
+                    <!-- Domain 6 -->
+                    <div class="domain-showcase-card" data-domain-tag="D6">
+                        <div class="domain-card-header">
+                            <span class="domain-tag">المحور السادس • D6</span>
+                            <span class="domain-count">5 كفايات</span>
+                        </div>
+                        <h3 class="domain-card-title">كفايات الابتكار</h3>
+                        <p class="domain-card-desc">توليد قيمة مضافة لميدان الكوتشنج من خلال تطوير 10 نماذج إدارية وتطويرية، وأداة قياس مبتكرة، وتصميم مشروع تخرج استثنائي.</p>
+                        <ul class="domain-competencies-list">
+                            <li>تطوير أدوات ومقاييس جديدة للكوتشنج</li>
+                            <li>تحسين وتطوير النماذج الحالية المعتمدة</li>
+                            <li>ابتكار حلول عملية للحالات المؤسسية المعقدة</li>
+                            <li>بناء مشروع تخرج ابتكاري قابل للتطبيق الميداني</li>
+                            <li>تقييم أثر الابتكار والعائد على التطبيق</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong>الشاهد والأداة:</strong> 10 بطاقات نماذج ابتكارية + أداة قياس (LMMI) + وثيقة مشروع التخرج والدفاع
+                        </div>
+                    </div>
+
+                    <!-- Domain 7 -->
+                    <div class="domain-showcase-card" data-domain-tag="D7">
+                        <div class="domain-card-header">
+                            <span class="domain-tag">المحور السابع • D7</span>
+                            <span class="domain-count">4 كفايات</span>
+                        </div>
+                        <h3 class="domain-card-title">الكفايات الرقمية والذكاء الاصطناعي</h3>
+                        <p class="domain-card-desc">استثمار التقنيات الحديثة والذكاء الاصطناعي بمسؤولية ووعي كامل، مع إعلاء الحكم المهني البشري والالتزام الصارم بسرية البيانات.</p>
+                        <ul class="domain-competencies-list">
+                            <li>توظيف التقنيات الحديثة في جلسات ومتابعة الكوتشنج</li>
+                            <li>الاستفادة المسؤولة من أدوات الذكاء الاصطناعي (AI)</li>
+                            <li>التحليل والتوثيق الرقمي الآمن والمشفر</li>
+                            <li>حماية أمن المعلومات وسرية بيانات المستفيدين</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong>الشاهد والأداة:</strong> مهام التحليل الرقمي وتوثيق الفارق بين مقترحات الذكاء الاصطناعي والتحقق البشري
+                        </div>
+                    </div>
+
+                    <!-- Domain 8 -->
+                    <div class="domain-showcase-card critical-ethics" data-domain-tag="D8">
+                        <div class="domain-card-header">
+                            <span class="domain-tag" style="background:rgba(220,38,38,0.12); color:#DC2626; border-color:rgba(220,38,38,0.3);">المحور الثامن • D8 • بوابة قطعية</span>
+                            <span class="domain-count" style="color:#DC2626;">7 كفايات</span>
+                        </div>
+                        <h3 class="domain-card-title">الكفايات الأخلاقية وحماية الخصوصية</h3>
+                        <p class="domain-card-desc">حصن المنظومة وحجر الزاوية: بوابة استقلالية صارمة لحماية كرامة المستفيدين، حدود الاختصاص، والالتزام بميثاق شرف الاتحاد العربي للكوتشنج.</p>
+                        <ul class="domain-competencies-list">
+                            <li>احترام الكرامة الإنسانية والخصوصية المطلقة</li>
+                            <li>سرية السجلات وحفظ الملفات من التداول غير المصرح</li>
+                            <li>الالتزام الصارم بحدود الاختصاص وعدم تجاوزه</li>
+                            <li>تجنب تضارب المصالح والإفصاح المبكر عند نشوئه</li>
+                            <li>الإفصاح المسؤول عند الضرورات النظامية والأخلاقية</li>
+                            <li>الالتزام بميثاق شرف الاتحاد العربي للكوتشنج</li>
+                            <li>إحالة الحالات المتجاوزة لحدود الممارسة للكفاءات المختصة</li>
+                        </ul>
+                        <div class="domain-card-footer">
+                            <strong style="color:#DC2626;">بوابة مستقلة قطعية:</strong> لا تُعوض بالدرجات المرتفعة، وأي إخلال يوقف التوصية بالاعتماد فوراً
+                        </div>
+                    </div>
+
+                    <!-- Empty state for search/filter -->
+                    <div id="landing-domains-empty" style="display:none; text-align:center; padding:2.5rem; background:var(--bg-surface); border:1px dashed var(--border-subtle); border-radius:var(--radius-lg); color:var(--text-muted); grid-column:1 / -1;">
+                        <p>لم يتم العثور على محاور أو كفايات مطابقة للبحث. يرجى تجربة كلمات بحث أخرى أو اختيار "كافة المحاور".</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. The 14 Onboarding Functional Competencies Framework -->
+        <section id="landing-domains14" class="landing-section" style="background:rgba(11,27,61,0.02); border-top:1px solid var(--border-subtle); border-bottom:1px solid var(--border-subtle);">
+            <div class="landing-container">
+                <div class="landing-section-header">
+                    <span class="landing-section-pill">منهجية التشخيص الأولي للمتدرب</span>
+                    <h2 class="landing-section-title">المجالات الوظيفية الـ 14 للتأهيل والتمكين</h2>
+                    <p class="landing-section-desc">
+                        يخضع كل كوتش ملتحق بالبرنامج في المرحلة الأولى لتمكين تشخيصي تفاعلي يحدد الكفايات التي يمتلك لها شواهد، وتلك التي يرغب بتطويرها، والشاهد المستهدف بناؤه.
+                    </p>
+                </div>
+
+                <div class="domains-14-grid">
+                    <div class="domain14-card"><span class="domain14-idx">1</span><div><strong>الممارسة المهنية الأساسية:</strong> إدارة الجلسات والحالات المركبة بصورة منظمة وملائمة.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">2</span><div><strong>التحليل المهني:</strong> تحليل الحالات واحتياجات المستفيد قبل اختيار التدخل والنموذج.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">3</span><div><strong>التفكير النقدي:</strong> مراجعة الافتراضات وتبرير الاختيارات وتفنيد البدائل.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">4</span><div><strong>التفكير المنظومي:</strong> قراءة الحالة في ضوء العلاقات والسياق والعوامل المؤثرة المتشابكة.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">5</span><div><strong>اختيار النماذج وتكاملها:</strong> توظيف النماذج ودمجها بمرونة وتبرير الاختيار الميداني.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">6</span><div><strong>توظيف أدوات الاستكشاف:</strong> تطبيق MBTI وعجلة الحياة وSWOT وتفسير النتائج للتطوير.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">7</span><div><strong>القيادة والتطبيق المؤسسي:</strong> دعم ثقافة التعلم وتهيئة المنظمة لتبني ممارسات الكوتشنج.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">8</span><div><strong>التأمل والتطوير المهني:</strong> مراجعة الأداء والاستفادة من الإشراف عبر سجل التأمل الرباعي.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">9</span><div><strong>البحث العلمي التطبيقي:</strong> معالجة مشكلة مهنية بمنهجية بحثية والتوثيق بنظام APA 7th.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">10</span><div><strong>الابتكار المهني:</strong> تطوير أدوات ونماذج جديدة ومشروع تخرج قيادي نوعي.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">11</span><div><strong>الكفاية الرقمية:</strong> توظيف التقنيات والذكاء الاصطناعي مع إعمال الحكم المهني الرشيد.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">12</span><div><strong>الأخلاقيات وحدود الاختصاص:</strong> الالتزام بالسرية وتجنب تضارب المصالح وإدارة الإحالات.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">13</span><div><strong>قياس الأثر:</strong> تحديد المؤشرات ومتابعة النتائج وإثبات العائد الاستثماري للكوتشنج.</div></div>
+                    <div class="domain14-card"><span class="domain14-idx">14</span><div><strong>التوثيق والتواصل المهني:</strong> تنظيم ملف الإنجاز الشامل والدفاع عن القرارات باحترافية.</div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. The 240 Accredited Hours Journey -->
+        <section id="landing-hours" class="landing-section">
+            <div class="landing-container">
+                <div class="landing-section-header">
+                    <span class="landing-section-pill">الرحلة الأكاديمية والميدانية المعتمدة</span>
+                    <h2 class="landing-section-title">رحلة الـ 240 ساعة تدريبية معتمدة</h2>
+                    <p class="landing-section-desc">
+                        يمتد البرنامج على مدار 20 إلى 24 أسبوعاً من العمل المركز والمكثف عبر 7 مسارات رئيسية موزعة بتوازن دقيق يضمن التحول الكامل من ممارس كوتشنج إلى ماستر كوتش قائد.
+                    </p>
+                </div>
+
+                <div class="hours-track-grid">
+                    <div class="hour-card">
+                        <div class="hour-header">
+                            <span class="hour-badge">المسار 1</span>
+                            <span class="hour-val">100 ساعة</span>
+                        </div>
+                        <h4 class="hour-title">التدريب المباشر التفاعلي</h4>
+                        <p class="hour-desc">محاضرات وورش عمل تدريبية متزامنة وحية تركز على الكفايات القيادية والتحليلية المتقدمة ونماذج اتخاذ القرار مع الماستر كوتش عبدالكريم الخليفي.</p>
+                        <div class="hour-tag">تدريب تفاعلي مباشر</div>
+                    </div>
+
+                    <div class="hour-card">
+                        <div class="hour-header">
+                            <span class="hour-badge">المسار 2</span>
+                            <span class="hour-val">30 ساعة</span>
+                        </div>
+                        <h4 class="hour-title">المختبرات التخصصية الـ 9</h4>
+                        <p class="hour-desc">معامل تطبيقية متخصصة: مختبر الجاهزية، إدارة الجلسات، تحليل الحالات، المحاكاة، الإشراف، التوثيق، الذكاء الاصطناعي، الجودة، والتفكير التأملي.</p>
+                        <div class="hour-tag">9 معامل تطبيقية</div>
+                    </div>
+
+                    <div class="hour-card">
+                        <div class="hour-header">
+                            <span class="hour-badge">المسار 3</span>
+                            <span class="hour-val">40 ساعة</span>
+                        </div>
+                        <h4 class="hour-title">الممارسة الميدانية المستقلة</h4>
+                        <p class="hour-desc">ممارسة كوتشنج واقعية حية تمتد على مدار 3 أشهر متواصلة، موثقة بتقارير الجلسات وحالات التمكين وتطبيقات الأدوات التشخيصية المعتمدة.</p>
+                        <div class="hour-tag">3 أشهر متابعة ميدانية</div>
+                    </div>
+
+                    <div class="hour-card">
+                        <div class="hour-header">
+                            <span class="hour-badge">المسار 4</span>
+                            <span class="hour-val">20 ساعة</span>
+                        </div>
+                        <h4 class="hour-title">الإشراف المهني المعتمد</h4>
+                        <p class="hour-desc">جلسات إشراف فردي وجماعي مباشرة لتوجيه الكوتش المتدرب، تدقيق التسجيلات الصوتية، ومراجعة تقارير الحالات وخطط التطوير المستمر.</p>
+                        <div class="hour-tag">إشراف فردي وجماعي</div>
+                    </div>
+
+                    <div class="hour-card">
+                        <div class="hour-header">
+                            <span class="hour-badge">المسار 5</span>
+                            <span class="hour-val">20 ساعة</span>
+                        </div>
+                        <h4 class="hour-title">الورقة العلمية التطبيقية</h4>
+                        <p class="hour-desc">إعداد وتوثيق بحث تطبيقي رصين لا يقل عن 50 صفحة يعالج إشكالية مهنية في بيئة العمل، وفق المنهجية العلمية والتوثيق المعتمد APA 7th.</p>
+                        <div class="hour-tag">بحث تطبيقي $\ge 50$ صفحة</div>
+                    </div>
+
+                    <div class="hour-card">
+                        <div class="hour-header">
+                            <span class="hour-badge">المسار 6</span>
+                            <span class="hour-val">20 ساعة</span>
+                        </div>
+                        <h4 class="hour-title">مشروع التخرج الابتكاري</h4>
+                        <p class="hour-desc">تصميم وبناء وتجربة نموذج كوتشنج تنفيذي مبتكر (تمكين 360) واختبار فاعليته الميدانية والدفاع عنه أمام لجنة التحكيم والاعتماد.</p>
+                        <div class="hour-tag">مشروع ابتكاري ودفاع علمي</div>
+                    </div>
+
+                    <div class="hour-card">
+                        <div class="hour-header">
+                            <span class="hour-badge">المسار 7</span>
+                            <span class="hour-val">10 ساعات</span>
+                        </div>
+                        <h4 class="hour-title">ملف الإنجاز المهني الشامل</h4>
+                        <p class="hour-desc">أرشفة وفهرسة الشواهد والأدلة والتأملات المهنية في حقيبة إلكترونية تفاعلية قابلة للتحقق الرقمي والطباعة بجودة عالية.</p>
+                        <div class="hour-tag">E-Portfolio موثق</div>
+                    </div>
+                </div>
+
+                <div class="total-hours-callout">
+                    <div class="total-hours-inner">
+                        <div class="total-hours-title">المجموع الأكاديمي الإجمالي: <strong>240 ساعة تدريبية معتمدة ومحققة</strong></div>
+                        <div class="total-hours-note">تخضع الساعات للمطابقة الإلزامية المشتركة مع تحقق الكفايات والأدلة ولا تُحسب استقلالية الساعات بديلاً عن جودة الأداء والالتزام الأخلاقي.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Practical Deliverables & Scientific Rigor -->
+        <section id="landing-deliverables" class="landing-section" style="background:rgba(29,78,216,0.02);">
+            <div class="landing-container">
+                <div class="landing-section-header">
+                    <span class="landing-section-pill">المخرجات العملية والأدلة الإجرائية</span>
+                    <h2 class="landing-section-title">التسليمات الميدانية والمخرجات الـ 90</h2>
+                    <p class="landing-section-desc">
+                        لا يكتفي برنامج الماستر كوتش بالمعرفة النظرية، بل يرتكز على تسليمات ميدانية كمية ونوعية دقيقة تبرهن على الكفاءة التشغيلية والريادة العملية.
+                    </p>
+                </div>
+
+                <div class="deliverables-grid">
+                    <div class="deliverable-card">
+                        <div class="deliv-icon-wrap" style="color:var(--brand-blue); background:rgba(29,78,216,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                        </div>
+                        <div class="deliv-num">20 حالة</div>
+                        <h4 class="deliv-title">مشروعات وحالات كوتشنج متكاملة</h4>
+                        <p class="deliv-desc">دراسة 20 حالة ميدانية واقعية مع تشخيص كامل، وتحديد الأهداف، وخطط التدخل، وتقارير المتابعة والنتائج المحققة للمستفيد.</p>
+                    </div>
+
+                    <div class="deliverable-card">
+                        <div class="deliv-icon-wrap" style="color:var(--status-emerald); background:rgba(5,150,105,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        </div>
+                        <div class="deliv-num">30 جلسة</div>
+                        <h4 class="deliv-title">جلسات كوتشنج ميدانية موثقة</h4>
+                        <p class="deliv-desc">30 جلسة موزعة عبر الحالات العشرين مع تقرير إجرائي مفصل لكل جلسة يخضع لروبرك تقييم الجلسات الميدانية المعتمد.</p>
+                    </div>
+
+                    <div class="deliverable-card featured-gold">
+                        <div class="deliv-icon-wrap" style="color:var(--status-amber); background:rgba(217,119,6,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </div>
+                        <div class="deliv-num">90 تطبيقاً</div>
+                        <h4 class="deliv-title">تطبيقات الأدوات الثلاث بقاعدة منع التكرار</h4>
+                        <p class="deliv-desc">
+                            <strong>30 تطبيق MBTI</strong> + <strong>30 عجلة الحياة</strong> + <strong>30 تحليل SWOT</strong>، مع قاعدة نظامية حاسمة تمنع تكرار المستفيد داخل الأداة الواحدة لضمان تنوع الممارسة.
+                        </p>
+                    </div>
+
+                    <div class="deliverable-card">
+                        <div class="deliv-icon-wrap" style="color:var(--status-purple); background:rgba(124,58,237,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        </div>
+                        <div class="deliv-num">10 نماذج</div>
+                        <h4 class="deliv-title">نماذج ابتكارية للكوتشنج والإدارة</h4>
+                        <p class="deliv-desc">صياغة وتوثيق 10 نماذج مبتكرة تتضمن الفكرة، القيمة المضافة، خطوات الاستخدام، حدود التطبيق، ونتائج الاختبار الميداني.</p>
+                    </div>
+
+                    <div class="deliverable-card">
+                        <div class="deliv-icon-wrap" style="color:var(--accent-cyan); background:rgba(2,132,199,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"></circle><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path></svg>
+                        </div>
+                        <div class="deliv-num">أداة قياس</div>
+                        <h4 class="deliv-title">أداة تحليل شخصية مبتكرة (LMMI)</h4>
+                        <p class="deliv-desc">مقياس مؤشرات النضج القيادي والدافعية المهنية — أداة تشخيصية مبتكرة ذات موثوقية عالية مبنية وفق المعايير القياسية.</p>
+                    </div>
+
+                    <div class="deliverable-card">
+                        <div class="deliv-icon-wrap" style="color:var(--brand-navy); background:rgba(11,27,61,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                        </div>
+                        <div class="deliv-num">مشروع مؤسسي</div>
+                        <h4 class="deliv-title">تهيئة مؤسسة للكوتشنج التنفيذي</h4>
+                        <p class="deliv-desc">مشروع تطبيقي لقيادة التغيير وتهيئة منظومة عمل حقيقية في 4 مراحل استراتيجية لتطبيق ثقافة وممارسات الكوتشنج المؤسسي.</p>
+                    </div>
+
+                    <div class="deliverable-card">
+                        <div class="deliv-icon-wrap" style="color:var(--status-crimson); background:rgba(220,38,38,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        </div>
+                        <div class="deliv-num">5 تسجيلات</div>
+                        <h4 class="deliv-title">تسجيلات احترافية في موضوعات كوتشنج</h4>
+                        <p class="deliv-desc">5 تسجيلات صوتية عالية الجودة تتناول محاور متخصصة في الكوتشنج مصحوبة باستمارة التغذية الراجعة والتأملات الذاتية.</p>
+                    </div>
+
+                    <div class="deliverable-card">
+                        <div class="deliv-icon-wrap" style="color:var(--brand-blue-light); background:rgba(59,130,246,0.1);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                        </div>
+                        <div class="deliv-num">50+ صفحة</div>
+                        <h4 class="deliv-title">ورقة علمية تطبيقية محكمة</h4>
+                        <p class="deliv-desc">ورقة بحثية تطبيقية وفق مواصفات الحقيبة (50 صفحة كحد أدنى) مع التوثيق المرجعي APA 7th ومناقشة علمية أمام اللجنة الأكاديمية.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. Official Accreditation, Decree & Digital QR Verification -->
+        <section id="landing-accreditation" class="landing-section">
+            <div class="landing-container">
+                <div class="landing-section-header">
+                    <span class="landing-section-pill">الاعتماد المهني والحوكمة الرسمية</span>
+                    <h2 class="landing-section-title">الاعتماد الرسمي والشهادة الملكية بنظام QR</h2>
+                    <p class="landing-section-desc">
+                        يمنح كل خريج رقم تدريبي أكاديمي موحد (Candidate ID) يتيح التوثيق الفوري لصحة الاعتماد وسلامة ساعات التدريب المنجزة عبر رمز الاستجابة السريع.
+                    </p>
+                </div>
+
+                <div class="accreditation-showcase-box">
+                    <div class="accreditation-info-side">
+                        <div class="accreditation-badge-gold">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;"><circle cx="12" cy="8" r="6"></circle><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path></svg>
+                            <span>اعتماد الاتحاد العربي للكوتشنج وإشراف تمكين الرؤية</span>
+                        </div>
+                        <h3 class="accreditation-title">شهادة التخرج والاعتماد الرسمية للماستر كوتش</h3>
+                        <p class="accreditation-desc">
+                            تصدر الشهادة الرسمية متضمنة الرقم التدريبي الأكاديمي، ساعات البرنامج الـ 240، توصية اللجنة العلمية، والمرسوم المعتمد، مع إمكانية التحقق الرقمي المباشر عبر مسح الرمز الذكي (QR Code) من أي مكان بالعالم.
+                        </p>
+                        <div class="accreditation-features-list">
+                            <div class="acc-feat-item">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span><strong>رقم تدريبي أكاديمي موحد:</strong> يبدأ بـ <code style="font-family:var(--font-mono); font-weight:700; color:var(--text-gold);">MC-2026-XXX</code> يُولد فور التسجيل.</span>
+                            </div>
+                            <div class="acc-feat-item">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span><strong>رمز تحقق فوري ذكي (Digital QR):</strong> يربط الشهادة بسجل الاعتماد الرسمي بقاعدة البيانات المشفرة.</span>
+                            </div>
+                            <div class="acc-feat-item">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span><strong>مرسوم الاعتماد واللجنة العلمية:</strong> موثقة بتوقيع الماستر كوتش عبدالكريم الخليفي ومصادقة اللجنة.</span>
+                            </div>
+                        </div>
+                        <div style="margin-top:1.5rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+                            <button type="button" class="btn-emerald" onclick="window.App.openCertificateModal()" style="padding:0.75rem 1.25rem; font-weight:700;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:4px;"><circle cx="12" cy="8" r="6"></circle><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path></svg>
+                                استعراض نموذج الشهادة الملكية
+                            </button>
+                            <button type="button" class="btn-outline" onclick="window.App.openVerificationModal('MC-2026-084')" style="padding:0.75rem 1.25rem;">
+                                تجربة فحص الرمز الذكي (QR Demo)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Certificate Graphic Preview Card -->
+                    <div class="accreditation-preview-card">
+                        <div class="royal-mini-cert-frame">
+                            <div class="cert-watermark-emblem"></div>
+                            <div class="cert-mini-header">
+                                <img src="assets/images/logo.png" alt="شعار تمكين الرؤية" style="height:36px; margin-bottom:4px;">
+                                <div style="font-size:0.7rem; color:var(--text-muted); font-weight:700;">شركة تمكين الرؤية • الاتحاد العربي للكوتشنج</div>
+                                <div style="font-size:0.95rem; font-weight:900; color:#0B1B3D; margin-top:2px;">شهادة اجتياز وتأهيل الماستر كوتش 3.0</div>
+                            </div>
+                            <div class="cert-mini-body">
+                                <div style="font-size:0.75rem; color:var(--text-secondary);">تشهد إدارة البرنامج واللجنة العلمية بأن الكوتش:</div>
+                                <div style="font-size:1.1rem; font-weight:900; color:var(--text-primary); margin:4px 0;">كوتش أحمد بن صالح الشمري</div>
+                                <div style="font-size:0.72rem; color:var(--text-muted);">قد أتم بنجاح متطلبات التأهيل القيادي لبرنامج الماستر كوتش بواقع (240) ساعة معتمدة</div>
+                            </div>
+                            <div class="cert-mini-footer">
+                                <div>
+                                    <div style="font-size:0.65rem; color:var(--text-muted);">الرقم التدريبي الأكاديمي:</div>
+                                    <div style="font-family:var(--font-mono); font-weight:700; color:#B45309; font-size:0.8rem;">MC-2026-084</div>
+                                </div>
+                                <div class="cert-mini-seal-gold">
+                                    <span>معتمد</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. Instructor & Consulting House Bio -->
+        <section id="landing-instructor" class="landing-section" style="background:rgba(11,27,61,0.02); border-top:1px solid var(--border-subtle); border-bottom:1px solid var(--border-subtle);">
+            <div class="landing-container">
+                <div class="landing-section-header">
+                    <span class="landing-section-pill">القيادة العلمية والاستشارية</span>
+                    <h2 class="landing-section-title">إعداد الماستر كوتش عبدالكريم الخليفي</h2>
+                    <p class="landing-section-desc">
+                        خبرة مهنية وميدانية ممتدة لأكثر من عقدين في قيادة برامج الكوتشنج التنفيذي والاستشارات المهنية وحوكمة الممارسات المؤسسية.
+                    </p>
+                </div>
+
+                <div class="instructor-bio-grid">
+                    <div class="instructor-card">
+                        <div class="instructor-avatar-wrap">
+                            <div class="instructor-avatar-circle">MC</div>
+                            <div class="instructor-badge-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+                        </div>
+                        <div class="instructor-content">
+                            <div class="instructor-role-badge">المشرف العام ومؤلف الحقيبة 3.0</div>
+                            <h3 class="instructor-name">الماستر كوتش عبدالكريم الخليفي</h3>
+                            <p class="instructor-p">
+                                خبير ومستشار التطوير القيادي والمؤسسي، ماستر كوتش معتمد ومحكّم برامج دولية، مؤلف "حقيبة برنامج إعداد وتأهيل الماستر كوتش، الإصدار 3.0، النسخة التطويرية 2026". قاد مئات الجلسات التنفيذية والمشاريع الاستراتيجية لتهيئة المنظمات لثقافة الكوتشنج القيادي.
+                            </p>
+                            <div class="instructor-creds">
+                                <span class="cred-chip">• ماستر كوتش تنفيذي معتمد</span>
+                                <span class="cred-chip">• رئيس اللجنة الاستشارية للكوتشنج</span>
+                                <span class="cred-chip">• محكّم أوراق ومشاريع تخرج علمية</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="consulting-house-card">
+                        <img src="assets/images/logo.png" alt="شعار تمكين الرؤية" style="height:56px; margin-bottom:0.75rem;">
+                        <h4 style="font-size:1.15rem; font-weight:800; color:var(--text-primary); margin:0 0 0.5rem 0;">شركة تمكين الرؤية للاستشارات المهنية</h4>
+                        <div style="font-family:var(--font-mono); color:var(--brand-blue-light); font-size:0.8rem; margin-bottom:0.75rem;">cyce52.com</div>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.6; margin:0 0 1rem 0;">
+                            بيت الخبرة المهني والاستشاري الرائد في تقديم حلول الكوتشنج القيادي وبرامج التطوير التنفيذي وحوكمة الممارسات المؤسسية بالمملكة العربية السعودية والعالم العربي.
+                        </p>
+                        <div style="font-size:0.78rem; color:var(--text-muted); border-top:1px dashed var(--border-subtle); padding-top:0.75rem;">
+                            الجهة الحاضنة والمسؤولة عن الإشراف والتنفيذ والاعتماد لمنظومة الماستر كوتش 3.0
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. Frequently Asked Questions (FAQ) -->
+        <section id="landing-faq" class="landing-section">
+            <div class="landing-container">
+                <div class="landing-section-header">
+                    <span class="landing-section-pill">إجابات الخبراء</span>
+                    <h2 class="landing-section-title">الأسئلة الأكثر شيوعاً حول الحقيبة والاعتماد</h2>
+                    <p class="landing-section-desc">
+                        كل ما تود معرفته حول آلية التسجيل، توزيع الساعات، شروط التخرج، وقواعد التدقيق المعياري.
+                    </p>
+                </div>
+
+                <div class="faq-accordion-list">
+                    <details class="faq-accordion-item" open>
+                        <summary class="faq-question">
+                            <span>ما هي المتطلبات القبلية للالتحاق ببرنامج إعداد وتأهيل الماستر كوتش 3.0؟</span>
+                            <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-answer">
+                            يشترط للالتحاق بالبرنامج مراجعة مخرجات شهادتي CPC و PCC أو ما يعادلهما من برامج الكوتشنج المعتمدة، مع تقديم سجل الممارسة الأولية، والالتزام بحضور ساعات التدريب المباشر والمختبرات وإتمام متطلبات الممارسة الميدانية على مدار 3 أشهر كاملة.
+                        </div>
+                    </details>
+
+                    <details class="faq-accordion-item">
+                        <summary class="faq-question">
+                            <span>ما هو الرقم التدريبي الأكاديمي (Candidate ID) وكيف أحصل عليه؟</span>
+                            <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-answer">
+                            الرقم التدريبي الأكاديمي هو كود رسمي موحد بصيغة <code>MC-2026-XXX</code> يُولد تلقائياً فور تسجيلك في المنصة. يرافقك هذا الرقم في كافة مراحل التدريب، ويُستخدم في قيد الدفعات، إيداع المهام، وربط شهادة التخرج برمز الاستجابة السريع (QR Code) للتحقق المباشر من الاعتماد.
+                        </div>
+                    </details>
+
+                    <details class="faq-accordion-item">
+                        <summary class="faq-question">
+                            <span>هل يغني إتمام عدد الجلسات أو الحالات عن الساعات أو الكفايات؟</span>
+                            <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-answer">
+                            كلا. تنص اللائحة الرسمية للحقيبة على الفصل التام بين الاستكمال الكمي (الأعداد والساعات) والتحقق الكيفيّ للكفايات (جودة الممارسة). إتمام 30 جلسة يمثل فرصة لجمع الشواهد والأدلة، لكنه لا يعني آلياً استيفاء ساعات الممارسة الـ 40 أو إتقان الكفايات دون تقييم إيجابي عبر الروبركات الرسمية الستة.
+                        </div>
+                    </details>
+
+                    <details class="faq-accordion-item">
+                        <summary class="faq-question">
+                            <span>ما هي قاعدة عدم التكرار في تطبيقات الأدوات الـ 90؟</span>
+                            <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-answer">
+                            تتطلب الحقيبة 90 تطبيقاً قياسياً (30 MBTI + 30 عجلة الحياة + 30 SWOT). القاعدة النظامية الصارمة تمنع تكرار نفس المستفيد داخل الأداة الواحدة (أي 30 مستفيداً مختلفاً لكل أداة)، بينما تسمح بمشاركة نفس المستفيد في أدوات متعددة لإتاحة دراسة الحالات التكاملية.
+                        </div>
+                    </details>
+
+                    <details class="faq-accordion-item">
+                        <summary class="faq-question">
+                            <span>كيف تعمل بوابة السلامة الأخلاقية المستقلة؟</span>
+                            <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-answer">
+                            بوابة السلامة الأخلاقية هي معيار حرج قطعي مستقل تماماً عن المتوسطات الحسابية. إذا حدث أي إخلال بأخلاقيات المهنة أو تجاوز حدود الاختصاص أو خرق السرية، يتم تفعيل الحظر الأخلاقي فوراً وحجب التوصية بالتخرج، ولا تعوض الدرجات المرتفعة في بقية المعايير عن أي خلل أخلاقي.
+                        </div>
+                    </details>
+
+                    <details class="faq-accordion-item">
+                        <summary class="faq-question">
+                            <span>ما هي مواصفات الورقة العلمية التطبيقية ومشروع التخرج؟</span>
+                            <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-answer">
+                            يُشترط للورقة العلمية ألا تقل عن 50 صفحة وتلتزم بنظام التوثيق APA الإصدار السابع، وتُسلم في 4 مراحل معتمدة وتُعرض وتُناقش علناً. أما مشروع التخرج فهو نموذج ابتكاري تطبيقي (مثل منظومة تمكين 360) يخضع لمحاكاة واختبار ميداني ودفاع أمام لجنة التحكيم.
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </section>
+
+        <!-- 9. Final High-Converting Call to Action Banner -->
+        <section class="landing-final-cta-section">
+            <div class="landing-container">
+                <div class="landing-final-cta-card">
+                    <span class="landing-cta-pill">التسجيل متاح الآن للدفعات الجديدة</span>
+                    <h2 class="landing-final-cta-title">ابدأ رحلتك نحو نيل رتبة الماستر كوتش اليوم</h2>
+                    <p class="landing-final-cta-desc">
+                        احصل على رقمك التدريبي الأكاديمي الرسمي، وانضم إلى ديوان الحوار التفاعلي وجلسات الإشراف الحي تحت قيادة الماستر كوتش عبدالكريم الخليفي.
+                    </p>
+                    <div class="landing-final-cta-buttons">
+                        <button type="button" class="btn-landing-primary" onclick="window.App.openAuthModal('register')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                            <span>تسجيل كوتش جديد واحصل على رقمك التدريبي</span>
+                        </button>
+                        <button type="button" class="btn-landing-secondary" onclick="window.App.openAuthModal('login')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <span>تسجيل الدخول للمنصة</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 10. Sticky Floating Bottom Action Bar -->
+        <div id="landing-sticky-cta" class="landing-sticky-cta" role="complementary" aria-label="الشريط السريع للانضمام">
+            <div class="landing-sticky-inner">
+                <div class="sticky-text-wrap">
+                    <span class="status-ping-dot" style="background:#10B981; margin-left:6px;"></span>
+                    <strong>التسجيل مفتوح للدفعات المعتمدة 2026:</strong>
+                    <span>احجز مقعدك واحصل فوراً على رقمك التدريبي الأكاديمي (Candidate ID).</span>
+                </div>
+                <div class="sticky-actions-wrap">
+                    <button type="button" class="btn-xs btn-emerald" onclick="window.App.openAuthModal('register')" style="padding:0.55rem 1.1rem; font-weight:800;">
+                        انضم للبرنامج الآن
+                    </button>
+                    <button type="button" class="btn-xs btn-outline" onclick="window.App.openAuthModal('login')" style="padding:0.55rem 0.9rem;">
+                        تسجيل الدخول
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
 
     <!-- Main Content Application Containers -->
     <main class="app-main-content mode-onepage" id="main-content-container">
@@ -216,14 +1015,14 @@
             <div id="dashboard-content-area"></div>
         </section>
 
+        <!-- Panel 2: Quantitative Requirements & Hours & 90 Tools & Curriculum Deliverables -->
+        <section id="panel-quant" class="tab-panel" data-section-name="quant">
+            <div id="quant-content-area"></div>
+        </section>
+
         <!-- Panel 4: Task & Evidence Lifecycle Hub -->
         <section id="panel-tasks" class="tab-panel" data-section-name="tasks">
             <div id="tasks-content-area"></div>
-        </section>
-
-        <!-- Panel 2: Quantitative Requirements & Hours & 90 Tools -->
-        <section id="panel-quant" class="tab-panel" data-section-name="quant">
-            <div id="quant-content-area"></div>
         </section>
 
         <!-- Decoupled Chat Panel Sentinel (Preserved for DOM ID contract; chat is now in slide-over drawer) -->
@@ -300,20 +1099,20 @@
                     </div>
 
                     <div class="chat-drawer-header-actions">
-                        <span class="chat-ws-status-badge online" id="chat-ws-status-badge" title="حالة الاتصال الفوري">
+                        <span class="chat-ws-status-badge online" id="chat-ws-status-badge" style="display:none !important;" title="حالة الاتصال">
                             <span class="ws-status-dot"></span>
-                            <span class="ws-status-label" id="chat-ws-status-label">متصل فوري</span>
+                            <span class="ws-status-label" id="chat-ws-status-label"></span>
                         </span>
 
                         <!-- Fullscreen Toggle Button -->
-                        <button id="chat-fullscreen-btn" class="chat-drawer-action-btn" onclick="window.ChatWidget ? window.ChatWidget.toggleFullscreen() : null" title="ملء الشاشة (Full Screen)" aria-label="ملء الشاشة">
+                        <button id="chat-fullscreen-btn" class="chat-drawer-action-btn" onclick="window.ChatWidget ? window.ChatWidget.toggleFullscreen() : null" title="ملء الشاشة" aria-label="ملء الشاشة">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
                             </svg>
                         </button>
 
                         <!-- Close Button -->
-                        <button class="chat-drawer-close-btn" onclick="window.ChatWidget ? window.ChatWidget.close() : (window.App && window.App.toggleChatDrawer ? window.App.toggleChatDrawer(false) : null)" title="إغلاق الدرج (Esc)" aria-label="إغلاق">
+                        <button class="chat-drawer-close-btn" onclick="window.ChatWidget ? window.ChatWidget.close() : (window.App && window.App.toggleChatDrawer ? window.App.toggleChatDrawer(false) : null)" title="إغلاق" aria-label="إغلاق">
                             <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
@@ -321,15 +1120,15 @@
 
                 <!-- Segmented Channel Switcher Tabs Bar -->
                 <div class="chat-drawer-channel-tabs-bar">
-                    <div class="chat-channel-segmented" id="chat-channel-segmented">
-                        <button class="chat-channel-tab-btn active" id="btn-channel-direct" onclick="window.ChatWidget ? window.ChatWidget.switchChannel('direct') : (window.App && window.App.switchChatChannel ? window.App.switchChatChannel(2) : null)" title="إشراف فردي">
+                    <div class="chat-channel-segmented" id="chat-channel-segmented" role="tablist" aria-label="قنوات المحادثة والتوجيه">
+                        <button class="chat-channel-tab-btn active" id="btn-channel-direct" role="tab" aria-selected="true" onclick="window.ChatWidget ? window.ChatWidget.switchChannel('direct') : (window.App && window.App.switchChatChannel ? window.App.switchChatChannel(2) : null)" title="إشراف فردي">
                             <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:6px;"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
                             <span>إشراف فردي</span>
                             <span class="channel-tab-badge" id="badge-channel-direct" style="display:none;">0</span>
                         </button>
-                        <button class="chat-channel-tab-btn" id="btn-channel-group" onclick="window.ChatWidget ? window.ChatWidget.switchChannel('group') : (window.App && window.App.switchChatChannel ? window.App.switchChatChannel(1) : null)" title="ديوان الزمالة">
+                        <button class="chat-channel-tab-btn" id="btn-channel-group" role="tab" aria-selected="false" onclick="window.ChatWidget ? window.ChatWidget.switchChannel('group') : (window.App && window.App.switchChatChannel ? window.App.switchChatChannel(1) : null)" title="المحادثة الجماعية للدفعة">
                             <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:6px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                            <span>ديوان الزمالة</span>
+                            <span>مجموعة الزملاء</span>
                             <span class="channel-tab-badge" id="badge-channel-group" style="display:none;">0</span>
                         </button>
                     </div>
@@ -375,6 +1174,18 @@
     <!-- Generic Interactive Details Modal -->
     <div id="generic-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="generic-modal-title" aria-hidden="true"></div>
 
+    <!-- Live Audio Recording & Upload Modal -->
+    <div id="recording-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="recording-modal-title" aria-hidden="true"></div>
+
+    <!-- Specialized Curriculum Submissions Modal -->
+    <div id="curriculum-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="curriculum-modal-title" aria-hidden="true"></div>
+
+    <!-- Official Graduation Certificate & QR Verification Modal -->
+    <div id="certificate-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="certificate-modal-title" aria-hidden="true"></div>
+
+    <!-- Digital QR Verification Public Modal -->
+    <div id="verify-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="verify-modal-title" aria-hidden="true"></div>
+
     <!-- Executive Platform Footer Landmark -->
     <footer class="app-footer no-print" role="contentinfo">
         <div class="footer-inner">
@@ -396,6 +1207,7 @@
     <script src="js/data.js"></script>
     <script src="js/api.js"></script>
     <script src="js/chat-widget.js"></script>
+    <script src="js/tour.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

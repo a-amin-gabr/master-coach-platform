@@ -29,9 +29,13 @@ app.use('/api/tools', require('./routes/tools'));
 app.use('/api/rubrics', require('./routes/rubrics'));
 app.use('/api/ethics', require('./routes/ethics'));
 app.use('/api/cases', require('./routes/cases'));
+app.use('/api/curriculum', require('./routes/curriculum'));
+app.use('/api/recordings', require('./routes/curriculum'));
+app.use('/api/models', require('./routes/curriculum'));
 app.use('/api/audit', require('./routes/audit'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Healthcheck
 app.get('/api/health', (req, res) => {
@@ -74,11 +78,11 @@ const server = http.createServer(app);
 initWebSocketServer(server);
 
 if (require.main === module) {
-    server.listen(config.PORT, '0.0.0.0', () => {
+    server.listen(config.PORT, () => {
         console.log(`\n================================================================`);
         console.log(`  منظومة إعداد وتأهيل الماستر كوتش (الإصدار 3.0) - تمكين الرؤية`);
         console.log(`  إعداد: الماستر كوتش عبدالكريم الخليفي (cyce52.com)`);
-        console.log(`  الخادم يعمل بنجاح على: http://0.0.0.0:${config.PORT}`);
+        console.log(`  الخادم يعمل بنجاح على: http://localhost:${config.PORT}`);
         console.log(`================================================================\n`);
     });
 }

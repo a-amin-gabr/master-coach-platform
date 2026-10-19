@@ -821,7 +821,7 @@ router.post('/coaches', authenticate, requireRole('admin'), (req, res) => {
 router.put('/coaches/:id', authenticate, requireRole('admin'), (req, res) => {
     try {
         const coachId = parseInt(req.params.id, 10);
-        const { name, title, candidateCode, currentStanding, auditStatus, supervisorName, phone } = req.body;
+        const { name, title, candidateCode, currentStanding, auditStatus, supervisorName, phone, cohortId, cohort_id } = req.body;
         const dbConn = db.getDb();
         const coachRow = dbConn.prepare('SELECT * FROM coaches WHERE id = ?').get(coachId);
         if (!coachRow) return res.status(404).json({ error: 'الكوتش غير موجود' });
@@ -832,20 +832,47 @@ router.put('/coaches/:id', authenticate, requireRole('admin'), (req, res) => {
             `).run(name || null, phone || null, coachRow.user_id);
         }
 
+        const targetCohortId = cohortId !== undefined ? cohortId : (cohort_id !== undefined ? cohort_id : undefined);
+        const resolvedAuditStatus = auditStatus || req.body.audit_status || null;
+
+        if (targetCohortId !== undefined) {
+            // If changing cohort, remove from previous cohort chat channel
+            if (coachRow.cohort_id && coachRow.cohort_id !== targetCohortId) {
+                const oldChannel = dbConn.prepare('SELECT id FROM chat_channels WHERE cohort_id = ?').get(coachRow.cohort_id);
+                if (oldChannel) {
+                    dbConn.prepare('DELETE FROM chat_channel_members WHERE channel_id = ? AND user_id = ?').run(oldChannel.id, coachRow.user_id);
+                }
+            }
+
+            // If assigned to a new cohort, add to new cohort channel
+            if (targetCohortId) {
+                const newChannel = dbConn.prepare('SELECT id FROM chat_channels WHERE cohort_id = ?').get(targetCohortId);
+                if (newChannel) {
+                    dbConn.prepare(`
+                        INSERT OR IGNORE INTO chat_channel_members (channel_id, user_id, role, last_read_message_id, joined_at)
+                        VALUES (?, ?, 'member', 0, ?)
+                    `).run(newChannel.id, coachRow.user_id, new Date().toISOString());
+                }
+            }
+        }
+
         dbConn.prepare(`
             UPDATE coaches 
             SET title = COALESCE(?, title),
                 candidate_code = COALESCE(?, candidate_code),
                 current_standing = COALESCE(?, current_standing),
                 audit_status = COALESCE(?, audit_status),
-                supervisor_name = COALESCE(?, supervisor_name)
+                supervisor_name = COALESCE(?, supervisor_name),
+                cohort_id = CASE WHEN ? = 1 THEN ? ELSE cohort_id END
             WHERE id = ?
         `).run(
             title || null,
             candidateCode || null,
             currentStanding || null,
-            auditStatus || null,
+            resolvedAuditStatus,
             supervisorName || null,
+            targetCohortId !== undefined ? 1 : 0,
+            targetCohortId || null,
             coachId
         );
 
@@ -891,6 +918,321 @@ router.delete('/coaches/:id', authenticate, requireRole('admin'), (req, res) => 
     } catch (err) {
         console.error('Error deleting coach:', err);
         return res.status(500).json({ error: 'حدث خطأ أثناء حذف حساب الكوتش', details: err.message });
+    }
+});
+
+// POST /api/admin/coaches/:id/reset-password (Master Coach resets coach password)
+router.post('/coaches/:id/reset-password', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const coachId = parseInt(req.params.id, 10);
+        const { newPassword } = req.body;
+        if (!newPassword || newPassword.trim().length < 6) {
+            return res.status(400).json({ error: 'كلمة المرور الجديدة مطلوبة ويجب ألا تقل عن 6 أحرف' });
+        }
+
+        const result = db.resetCoachPassword(coachId, newPassword, req.user.id, req.user.name);
+        return res.json(result);
+    } catch (err) {
+        console.error('Error resetting coach password:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء تغيير كلمة مرور الكوتش' });
+    }
+});
+
+// PUT /api/admin/coaches/:id/tune-targets (Fine-tune individual coach targets)
+router.put('/coaches/:id/tune-targets', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const coachId = parseInt(req.params.id, 10);
+        const { customTargets } = req.body;
+        if (!customTargets || typeof customTargets !== 'object') {
+            return res.status(400).json({ error: 'بيانات المستهدفات المخصصة مطلوبة' });
+        }
+
+        const result = db.tuneCoachTargets(coachId, customTargets, req.user.id, req.user.name);
+        return res.json(result);
+    } catch (err) {
+        console.error('Error tuning coach targets:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء تخصيص مستهدفات الكوتش' });
+    }
+});
+
+// ----------------------------------------------------
+// Multi-Cohort Management System (الدفعات التدريبية)
+// ----------------------------------------------------
+
+// GET /api/admin/cohorts (List all cohorts with dynamic metrics)
+router.get('/cohorts', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohorts = db.getAllCohorts();
+        return res.json({ count: cohorts.length, cohorts });
+    } catch (err) {
+        console.error('Error fetching cohorts:', err);
+        return res.status(500).json({ error: 'حدث خطأ أثناء جلب قائمة الدفعات التدريبية', details: err.message });
+    }
+});
+
+// GET /api/admin/cohorts/:id (Single cohort with full roster details)
+router.get('/cohorts/:id', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohortId = parseInt(req.params.id, 10);
+        const cohort = db.getCohortById(cohortId);
+        if (!cohort) return res.status(404).json({ error: 'الدفعة التدريبية غير موجودة' });
+        return res.json({ cohort });
+    } catch (err) {
+        console.error('Error fetching cohort:', err);
+        return res.status(500).json({ error: 'حدث خطأ أثناء جلب تفاصيل الدفعة', details: err.message });
+    }
+});
+
+// POST /api/admin/cohorts (Create new cohort with baseline targets)
+router.post('/cohorts', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const { code, name, description, startDate, endDate, status, maxCoaches, targets } = req.body;
+        if (!code || !name || !startDate) {
+            return res.status(400).json({ error: 'كود الدفعة واسمها وتاريخ البدء حقول إلزامية' });
+        }
+
+        const dbConn = db.getDb();
+        const existing = dbConn.prepare('SELECT id FROM cohorts WHERE code = ?').get(code.trim());
+        if (existing) {
+            return res.status(400).json({ error: 'كود الدفعة مسجل بالفعل، يرجى اختيار كود فريد' });
+        }
+
+        const cohort = db.createCohort({
+            code,
+            name,
+            description,
+            startDate,
+            endDate,
+            status: status || 'active',
+            maxCoaches: maxCoaches ? parseInt(maxCoaches, 10) : 30,
+            targets,
+            adminUserId: req.user.id,
+            adminName: req.user.name
+        });
+
+        return res.status(201).json({
+            message: 'تم تدشين الدفعة التدريبية وتخصيص ديوان المحادثة بنجاح',
+            cohort
+        });
+    } catch (err) {
+        console.error('Error creating cohort:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء إنشاء الدفعة التدريبية' });
+    }
+});
+
+// PUT /api/admin/cohorts/:id (Update cohort info & targets)
+router.put('/cohorts/:id', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohortId = parseInt(req.params.id, 10);
+        const { code, name, description, startDate, endDate, status, maxCoaches, targets } = req.body;
+        const updated = db.updateCohort(cohortId, {
+            code,
+            name,
+            description,
+            startDate,
+            endDate,
+            status,
+            maxCoaches: maxCoaches ? parseInt(maxCoaches, 10) : undefined,
+            targets,
+            adminUserId: req.user.id,
+            adminName: req.user.name
+        });
+
+        if (!updated) return res.status(404).json({ error: 'الدفعة التدريبية غير موجودة' });
+
+        return res.json({
+            message: 'تم تحديث بيانات ومستهدفات الدفعة بنجاح',
+            cohort: updated
+        });
+    } catch (err) {
+        console.error('Error updating cohort:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء تعديل بيانات الدفعة' });
+    }
+});
+
+// DELETE /api/admin/cohorts/:id (Archive/Delete cohort)
+router.delete('/cohorts/:id', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohortId = parseInt(req.params.id, 10);
+        const success = db.deleteCohort(cohortId, req.user.id, req.user.name);
+        if (!success) return res.status(404).json({ error: 'الدفعة التدريبية غير موجودة' });
+
+        return res.json({
+            message: 'تمت أرشفة/حذف الدفعة التدريبية بنجاح وفصل ارتباط الكوتشز المسجلين',
+            deletedCohortId: cohortId
+        });
+    } catch (err) {
+        console.error('Error deleting cohort:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء حذف الدفعة' });
+    }
+});
+
+function findCoachByIdentifier(dbConn, queryTerm) {
+    const q = (queryTerm || '').toString().trim();
+    if (!q) return null;
+    const isPureDigits = /^\d+$/.test(q);
+    const num = isPureDigits ? parseInt(q, 10) : -1;
+    const padded = isPureDigits ? String(num).padStart(3, '0') : '';
+
+    return dbConn.prepare(`
+        SELECT c.id, c.candidate_code, c.cohort_id, u.name, u.email 
+        FROM coaches c 
+        JOIN users u ON c.user_id = u.id 
+        WHERE c.candidate_code COLLATE NOCASE = ? 
+           OR (? != '' AND (c.candidate_code LIKE '%-' || ? OR c.candidate_code LIKE '%-' || ?))
+           OR (NOT ? AND c.candidate_code LIKE '%' || ? || '%')
+           OR u.name COLLATE NOCASE = ? 
+           OR NORMALIZE_ARABIC(u.name) LIKE '%' || NORMALIZE_ARABIC(?) || '%'
+           OR c.id = ?
+        ORDER BY 
+            CASE 
+                WHEN c.candidate_code COLLATE NOCASE = ? THEN 1
+                WHEN u.name COLLATE NOCASE = ? THEN 2
+                WHEN c.id = ? THEN 3
+                ELSE 4
+            END ASC
+        LIMIT 1
+    `).get(
+        q,
+        padded, q, padded,
+        isPureDigits ? 1 : 0, q,
+        q,
+        q,
+        num,
+        q,
+        q,
+        num
+    );
+}
+
+// POST /api/admin/cohorts/:id/assign-coaches (Assign coaches to cohort by ID, candidateCode, or name)
+router.post('/cohorts/:id/assign-coaches', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohortId = parseInt(req.params.id, 10);
+        let { coachIds, candidateCodes, coachIdentifiers, coachNames } = req.body;
+        const dbConn = db.getDb();
+
+        const cohort = dbConn.prepare('SELECT id, name FROM cohorts WHERE id = ?').get(cohortId);
+        if (!cohort) return res.status(404).json({ error: 'الدفعة التدريبية غير موجودة' });
+
+        const resolvedIds = new Set();
+
+        if (Array.isArray(coachIds)) {
+            coachIds.map(Number).filter(n => !isNaN(n) && n > 0).forEach(id => resolvedIds.add(id));
+        }
+
+        const identifierLists = [candidateCodes, coachIdentifiers, coachNames].filter(Boolean);
+        for (const rawList of identifierLists) {
+            const items = Array.isArray(rawList) ? rawList : [rawList];
+            for (const item of items) {
+                const term = String(item).trim();
+                if (!term) continue;
+                const match = findCoachByIdentifier(dbConn, term);
+                if (match) {
+                    resolvedIds.add(match.id);
+                }
+            }
+        }
+
+        if (resolvedIds.size === 0) {
+            return res.status(400).json({ error: 'يرجى تحديد مصفوفة معرفات الكوتشز المراد تعيينهم (coachIds) أو أرقامهم التدريبية/أسمائهم' });
+        }
+
+        const numericIds = Array.from(resolvedIds);
+        const updatedCohort = db.assignCoachesToCohort(cohortId, numericIds, req.user.id, req.user.name);
+        return res.json({
+            message: `تم تعيين ${numericIds.length} كوتش في الدفعة وإدراجهم في ديوان المحادثة بنجاح`,
+            assignedCount: numericIds.length,
+            assignedCoachIds: numericIds,
+            cohort: updatedCohort
+        });
+    } catch (err) {
+        console.error('Error assigning coaches to cohort:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء تعيين الكوتشز في الدفعة' });
+    }
+});
+
+// POST /api/admin/cohorts/:id/add-coach (Quick-enroll single coach by Candidate ID or Name)
+router.post('/cohorts/:id/add-coach', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohortId = parseInt(req.params.id, 10);
+        const { identifier, candidateCode, name, coachId } = req.body;
+        const queryTerm = (identifier || candidateCode || name || coachId || '').toString().trim();
+        if (!queryTerm) {
+            return res.status(400).json({ error: 'يرجى إدخال الرقم التدريبي الأكاديمي أو اسم الكوتش' });
+        }
+
+        const dbConn = db.getDb();
+        const cohort = dbConn.prepare('SELECT id, name FROM cohorts WHERE id = ?').get(cohortId);
+        if (!cohort) return res.status(404).json({ error: 'الدفعة التدريبية غير موجودة' });
+
+        const coach = findCoachByIdentifier(dbConn, queryTerm);
+        if (!coach) {
+            return res.status(404).json({ error: `لم يتم العثور على كوتش مطابق لـ: "${queryTerm}". يرجى التحقق من الرقم التدريبي أو الاسم.` });
+        }
+
+        const existingMembers = dbConn.prepare('SELECT id FROM coaches WHERE cohort_id = ?').all(cohortId).map(r => r.id);
+        if (!existingMembers.includes(coach.id)) {
+            existingMembers.push(coach.id);
+        }
+
+        const updatedCohort = db.assignCoachesToCohort(cohortId, existingMembers, req.user.id, req.user.name);
+        const updatedCoach = dbConn.prepare(`
+            SELECT c.id, c.candidate_code, c.cohort_id, u.name, u.email 
+            FROM coaches c 
+            JOIN users u ON c.user_id = u.id 
+            WHERE c.id = ?
+        `).get(coach.id);
+
+        return res.json({
+            message: `تم إلحاق الكوتش (${coach.name} - ${coach.candidate_code}) بالدفعة بنجاح`,
+            coach: updatedCoach,
+            cohort: updatedCohort
+        });
+    } catch (err) {
+        console.error('Error adding coach to cohort:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء إلحاق الكوتش بالدفعة' });
+    }
+});
+
+// POST /api/admin/cohorts/:id/sync-targets (Sync baseline targets to all enrolled coaches)
+router.post('/cohorts/:id/sync-targets', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohortId = parseInt(req.params.id, 10);
+        const result = db.syncCohortTargetsToCoaches(cohortId, req.user.id, req.user.name);
+        return res.json({
+            message: `تمت مزامنة وتعميم مستهدفات الدفعة على ${result.syncedCoachesCount} كوتش بنجاح`,
+            updatedCoachesCount: result.syncedCoachesCount,
+            result
+        });
+    } catch (err) {
+        console.error('Error syncing cohort targets:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء مزامنة مستهدفات الدفعة' });
+    }
+});
+
+// GET /api/admin/cohorts/:id/export-report (Cohort Executive Report Export)
+router.get('/cohorts/:id/export-report', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const cohortId = parseInt(req.params.id, 10);
+        const report = db.getCohortExecutiveReport(cohortId);
+        if (!report) return res.status(404).json({ error: 'الدفعة التدريبية غير موجودة' });
+        return res.json({ success: true, report, ...report });
+    } catch (err) {
+        console.error('Error generating cohort report:', err);
+        return res.status(500).json({ error: err.message || 'حدث خطأ أثناء استخراج التقرير التنفيذي للدفعة' });
+    }
+});
+
+// GET /api/admin/audit-logs (Administrative Audit Trail)
+router.get('/audit-logs', authenticate, requireRole('admin'), (req, res) => {
+    try {
+        const { limit, action, targetType, targetId } = req.query;
+        const logs = db.getAuditLogs({ limit, action, targetType, targetId });
+        return res.json({ count: logs.length, logs });
+    } catch (err) {
+        console.error('Error fetching audit logs:', err);
+        return res.status(500).json({ error: 'حدث خطأ أثناء جلب سجل التدقيق الإداري', details: err.message });
     }
 });
 

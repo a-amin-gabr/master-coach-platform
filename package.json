@@ -5,9 +5,11 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node tests/api_fullstack.test.js && node tests/websocket.test.js",
+    "test": "node tests/api_fullstack.test.js && node tests/websocket.test.js && node tests/cohorts_and_admin_tuning.test.js && node tests/guided_tour.test.js && node tests/tour_empirical_runtime.test.js && node tests/recordings_and_curriculum_submissions.test.js && node tests/notifications_hub_and_certificate.test.js && node tests/landing_and_candidate_cohort.test.js",
     "test:ws": "node tests/websocket.test.js",
-    "test:all": "node tests/api_fullstack.test.js && node tests/websocket.test.js && node tests/test_platform.mjs && node tests/test_reactive_logic.mjs"
+    "test:tour": "node tests/guided_tour.test.js && node tests/tour_empirical_runtime.test.js",
+    "test:notifs": "node tests/notifications_hub_and_certificate.test.js",
+    "test:all": "node tests/api_fullstack.test.js && node tests/websocket.test.js && node tests/cohorts_and_admin_tuning.test.js && node tests/guided_tour.test.js && node tests/tour_empirical_runtime.test.js && node tests/recordings_and_curriculum_submissions.test.js && node tests/notifications_hub_and_certificate.test.js && node tests/landing_and_candidate_cohort.test.js && (cd .. && node test_platform.js && node test_reactive_logic.js)"
   },
   "keywords": [
     "coaching",

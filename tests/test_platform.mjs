@@ -34,7 +34,7 @@ global.localStorage = {
     removeItem(k) { delete this._data[k]; }
 };
 
-await import(dataJsPath);
+await import('./master_coach_platform/js/data.js');
 
 const store = global.ProgramStore;
 if (!store) {

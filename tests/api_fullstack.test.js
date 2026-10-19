@@ -222,6 +222,21 @@ async function runTests() {
         // ----------------------------------------------------
         console.log('\n--- 6. محرك منع تكرار المستفيد داخل الأداة الواحدة (Anti-Duplication) ---');
         
+        // Ensure BEN-05 exists in MBTI for coach 1 first
+        const initialApp = await request('/api/tools/apply', {
+            method: 'POST',
+            token: coachToken,
+            json: {
+                toolType: 'mbti',
+                beneficiaryCode: 'BEN-05',
+                date: '2026-05-14',
+                focus: 'جلسة مقياس MBTI أولى',
+                plan: 'تحديد النمط القيادي',
+                isAnonymous: true
+            }
+        });
+        assert.strictEqual(initialApp.status, 201, 'Initial tool application for BEN-05 must succeed with 201');
+
         // Attempt duplicate in MBTI (BEN-05 already exists in MBTI for coach 1)
         const dupeAttempt = await request('/api/tools/apply', {
             method: 'POST',

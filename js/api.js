@@ -155,6 +155,13 @@
             return this.request(`/api/coaches/${coachId}`);
         }
 
+        async resetCoachState(coachId, mode = 'fresh') {
+            return this.request(`/api/coaches/${coachId}/reset-state`, {
+                method: 'POST',
+                json: { mode }
+            });
+        }
+
         // Tasks
         async getTasks(coachId) {
             const q = coachId ? `?coachId=${coachId}` : '';
@@ -305,6 +312,93 @@
         async getCase(caseId, coachId) {
             const q = coachId ? `?coachId=${coachId}` : '';
             return this.request(`/api/cases/${caseId}${q}`);
+        }
+
+        async createCase(caseData) {
+            return this.request('/api/cases', {
+                method: 'POST',
+                json: caseData
+            });
+        }
+
+        async createSession(sessionData) {
+            return this.request('/api/cases/sessions', {
+                method: 'POST',
+                json: sessionData
+            });
+        }
+
+        // Curriculum Submissions (Recordings, Models, Tools, Org, Research, Graduation)
+        async getRecordings(coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/curriculum/recordings${q}`);
+        }
+
+        async createRecording(recData) {
+            return this.request('/api/curriculum/recordings', {
+                method: 'POST',
+                json: recData
+            });
+        }
+
+        async getModels(coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/curriculum/models${q}`);
+        }
+
+        async createModel(modelData) {
+            return this.request('/api/curriculum/models', {
+                method: 'POST',
+                json: modelData
+            });
+        }
+
+        async getInnovativeTool(coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/curriculum/innovative-tool${q}`);
+        }
+
+        async updateInnovativeTool(toolData) {
+            return this.request('/api/curriculum/innovative-tool', {
+                method: 'POST',
+                json: toolData
+            });
+        }
+
+        async getOrgPreparation(coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/curriculum/org-preparation${q}`);
+        }
+
+        async updateOrgPreparation(orgData) {
+            return this.request('/api/curriculum/org-preparation', {
+                method: 'POST',
+                json: orgData
+            });
+        }
+
+        async getResearchPaper(coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/curriculum/research-paper${q}`);
+        }
+
+        async updateResearchPaper(paperData) {
+            return this.request('/api/curriculum/research-paper', {
+                method: 'POST',
+                json: paperData
+            });
+        }
+
+        async getGraduationProject(coachId) {
+            const q = coachId ? `?coachId=${coachId}` : '';
+            return this.request(`/api/curriculum/graduation-project${q}`);
+        }
+
+        async updateGraduationProject(projectData) {
+            return this.request('/api/curriculum/graduation-project', {
+                method: 'POST',
+                json: projectData
+            });
         }
 
         // Audit Determination & Graduation
@@ -550,6 +644,136 @@
             return this.request(`/api/admin/coaches/${coachId}`, {
                 method: 'DELETE'
             });
+        }
+
+        // ==========================================
+        // Password Management & Targets Tuning (Admin)
+        // ==========================================
+        async resetCoachPassword(coachId, newPassword) {
+            return this.request(`/api/admin/coaches/${coachId}/reset-password`, {
+                method: 'POST',
+                json: { newPassword }
+            });
+        }
+
+        async tuneCoachTargets(coachId, customTargets) {
+            return this.request(`/api/admin/coaches/${coachId}/tune-targets`, {
+                method: 'PUT',
+                json: { customTargets }
+            });
+        }
+
+        // ==========================================
+        // Multi-Cohort Management API (Admin & Public)
+        // ==========================================
+        async getCohorts() {
+            if (!this.token) {
+                return this.request('/api/auth/cohorts');
+            }
+            try {
+                return await this.request('/api/admin/cohorts');
+            } catch (err) {
+                if (err.status === 401 || err.status === 403) {
+                    return this.request('/api/auth/cohorts');
+                }
+                throw err;
+            }
+        }
+
+        async getPublicCohorts() {
+            return this.request('/api/auth/cohorts');
+        }
+
+        async getCohort(cohortId) {
+            return this.request(`/api/admin/cohorts/${cohortId}`);
+        }
+
+        async createCohort(cohortData) {
+            return this.request('/api/admin/cohorts', {
+                method: 'POST',
+                json: cohortData
+            });
+        }
+
+        async updateCohort(cohortId, cohortData) {
+            return this.request(`/api/admin/cohorts/${cohortId}`, {
+                method: 'PUT',
+                json: cohortData
+            });
+        }
+
+        async deleteCohort(cohortId) {
+            return this.request(`/api/admin/cohorts/${cohortId}`, {
+                method: 'DELETE'
+            });
+        }
+
+        async assignCoachesToCohort(cohortId, coachIds) {
+            return this.request(`/api/admin/cohorts/${cohortId}/assign-coaches`, {
+                method: 'POST',
+                json: { coachIds }
+            });
+        }
+
+        async addCoachToCohort(cohortId, identifier) {
+            return this.request(`/api/admin/cohorts/${cohortId}/add-coach`, {
+                method: 'POST',
+                json: { identifier }
+            });
+        }
+
+        async syncCohortTargets(cohortId) {
+            return this.request(`/api/admin/cohorts/${cohortId}/sync-targets`, {
+                method: 'POST'
+            });
+        }
+
+        async exportCohortReport(cohortId) {
+            return this.request(`/api/admin/cohorts/${cohortId}/export-report`);
+        }
+
+        async getAuditLogs(params = {}) {
+            const queryParams = new URLSearchParams();
+            if (params.limit) queryParams.append('limit', params.limit);
+            if (params.action) queryParams.append('action', params.action);
+            if (params.targetType) queryParams.append('targetType', params.targetType);
+            if (params.targetId) queryParams.append('targetId', params.targetId);
+            const q = queryParams.toString() ? `?${queryParams.toString()}` : '';
+            return this.request(`/api/admin/audit-logs${q}`);
+        }
+
+        // Live Notifications Hub Client Methods
+        async getNotifications(params = {}) {
+            const queryParams = new URLSearchParams();
+            if (params.type && params.type !== 'ALL') queryParams.append('type', params.type);
+            if (params.unreadOnly) queryParams.append('unreadOnly', 'true');
+            if (params.limit) queryParams.append('limit', params.limit);
+            const q = queryParams.toString() ? `?${queryParams.toString()}` : '';
+            return this.request(`/api/notifications${q}`);
+        }
+
+        async getUnreadNotificationsCount() {
+            return this.request('/api/notifications/unread-count');
+        }
+
+        async markNotificationAsRead(id) {
+            return this.request(`/api/notifications/${id}/read`, { method: 'POST' });
+        }
+
+        async markAllNotificationsAsRead() {
+            return this.request('/api/notifications/read-all', { method: 'POST' });
+        }
+
+        async createNotification(notifData) {
+            return this.request('/api/notifications', {
+                method: 'POST',
+                json: notifData
+            });
+        }
+
+        // Public Certificate & Digital QR Verification
+        async verifyCertificate(code) {
+            return this.request(`/api/audit/verify?code=${encodeURIComponent(code)}`);
         }
     }
 

@@ -194,6 +194,9 @@
         handleWsOpen() {
             this.reconnectAttempts = 0;
             this.updateConnectionStatus('online');
+            if (window.App && typeof window.App.updateNetworkStatus === 'function') {
+                window.App.updateNetworkStatus('online');
+            }
 
             // 25s ping/pong heartbeat
             if (this.pingInterval) clearInterval(this.pingInterval);
@@ -226,6 +229,11 @@
                         break;
                     case 'chat:read_receipt':
                         this.handleReadReceipt(data.payload || data);
+                        break;
+                    case 'NOTIFICATION_NEW':
+                        if (window.App && typeof window.App.handleIncomingNotification === 'function') {
+                            window.App.handleIncomingNotification(data.notification || data.payload);
+                        }
                         break;
                     case 'error':
                         console.warn('[ChatWidget] Server WebSocket notice:', data.message || data.code);
@@ -382,6 +390,9 @@
             }
 
             this.updateConnectionStatus('reconnecting');
+            if (window.App && typeof window.App.updateNetworkStatus === 'function') {
+                window.App.updateNetworkStatus('reconnecting');
+            }
 
             // Exponential backoff reconnect: 1s, 2s, 4s, 8s, up to 30s max
             const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts));
@@ -445,13 +456,14 @@
             if (status === 'online') {
                 if (dot) {
                     dot.className = 'chat-launcher-status-dot online';
-                    dot.title = 'متصل فوري (WebSocket)';
+                    dot.title = 'المحادثة والتوجيه';
                 }
                 if (badge) {
                     badge.className = 'chat-ws-status-badge online';
+                    badge.style.display = 'none';
                 }
                 if (label) {
-                    label.textContent = 'متصل فوري';
+                    label.textContent = '';
                 }
             } else if (status === 'reconnecting' || status === 'connecting') {
                 if (dot) {
@@ -460,6 +472,7 @@
                 }
                 if (badge) {
                     badge.className = 'chat-ws-status-badge reconnecting';
+                    badge.style.display = 'inline-flex';
                 }
                 if (label) {
                     label.textContent = 'إعادة الاتصال...';
@@ -471,6 +484,7 @@
                 }
                 if (badge) {
                     badge.className = 'chat-ws-status-badge offline';
+                    badge.style.display = 'inline-flex';
                 }
                 if (label) {
                     label.textContent = 'غير متصل';
@@ -617,7 +631,7 @@
             }
 
             if (this.dom.drawerTitle && activeCh) {
-                this.dom.drawerTitle.textContent = isDirect ? 'الماستر كوتش عبدالكريم الخليفي' : 'ديوان زمالة الماستر كوتش (الدفعة 2026)';
+                this.dom.drawerTitle.textContent = isDirect ? 'الماستر كوتش عبدالكريم الخليفي' : ((activeCh && activeCh.name) || 'المحادثة الجماعية للدفعة');
             }
 
             if (this.dom.avatarEl) {
@@ -675,7 +689,7 @@
                 const bannerAvatar = document.getElementById('chat-fs-banner-avatar');
                 const bannerTag = document.getElementById('chat-fs-banner-tag');
 
-                if (bannerTitle) bannerTitle.textContent = isDirect ? 'الماستر كوتش عبدالكريم الخليفي' : 'ديوان زمالة الماستر كوتش (الدفعة 2026)';
+                if (bannerTitle) bannerTitle.textContent = isDirect ? 'الماستر كوتش عبدالكريم الخليفي' : ((activeCh && activeCh.name) || 'المحادثة الجماعية للدفعة');
                 if (bannerSub) bannerSub.textContent = isDirect ? 'جلسة الإشراف الفردي المباشر • تمكين الرؤية للاستشارات المهنية' : 'القناة التفاعلية المشتركة لكوتشز الدفعة ومناقشات الحالات الميدانية';
                 if (bannerAvatar) {
                     bannerAvatar.innerHTML = isDirect
@@ -683,7 +697,7 @@
                         : (window.AppIcons ? window.AppIcons.get('users', { size: 24 }) : '');
                     bannerAvatar.className = 'chat-fs-active-avatar ' + (isDirect ? 'direct' : 'group');
                 }
-                if (bannerTag) bannerTag.textContent = isDirect ? 'إشراف فردي 1-على-1' : 'ديوان جماعي';
+                if (bannerTag) bannerTag.textContent = isDirect ? 'إشراف فردي 1-على-1' : 'نقاش جماعي للدفعة';
             }
         }
 
@@ -754,7 +768,7 @@
             } else {
                 if (drawer) drawer.classList.remove('is-fullscreen');
                 if (fsBtn) {
-                    fsBtn.title = 'ملء الشاشة (Full Screen)';
+                    fsBtn.title = 'ملء الشاشة';
                     fsBtn.setAttribute('aria-label', 'ملء الشاشة');
                     fsBtn.innerHTML = `
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1214,6 +1228,7 @@
                     originalName: file.name,
                     sizeBytes: file.size,
                     mimeType: file.type || (isDoc ? 'application/pdf' : 'image/png')
+                }
             );
         }
 
@@ -1231,7 +1246,7 @@
                             </span>
                             <h3>${safeTitle}</h3>
                         </div>
-                        <button class="btn-close-modal" onclick="window.ChatWidget.closeLightbox()" aria-label="إغلاق">
+                        <button class="btn-close-modal" onclick="window.ChatWidget.closeLightbox()" aria-label="إغلاق المعاينة" title="إغلاق المعاينة (Esc)">
                             <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
@@ -1408,7 +1423,7 @@
                                     </div>
                                     <div class="chat-fs-chan-details">
                                         <div class="chat-fs-chan-top">
-                                            <span class="chat-fs-chan-name">ديوان زمالة الماستر كوتش</span>
+                                            <span class="chat-fs-chan-name">${(groupCh && groupCh.name) || 'المحادثة الجماعية للدفعة'}</span>
                                             <span class="chat-fs-chan-time">${this.formatTime(groupCh && groupCh.last_message_time)}</span>
                                         </div>
                                         <div class="chat-fs-chan-bottom">
@@ -1457,17 +1472,13 @@
                                         }
                                     </div>
                                     <div>
-                                        <h4 class="chat-fs-active-title" id="chat-fs-banner-title">${isDirect ? 'الماستر كوتش عبدالكريم الخليفي' : 'ديوان زمالة الماستر كوتش (الدفعة 2026)'}</h4>
+                                        <h4 class="chat-fs-active-title" id="chat-fs-banner-title">${isDirect ? 'الماستر كوتش عبدالكريم الخليفي' : ((activeCh && activeCh.name) || 'المحادثة الجماعية للدفعة')}</h4>
                                         <p class="chat-fs-active-sub" id="chat-fs-banner-sub">${isDirect ? 'جلسة الإشراف الفردي المباشر • تمكين الرؤية للاستشارات المهنية' : 'القناة التفاعلية المشتركة لكوتشز الدفعة ومناقشات الحالات الميدانية'}</p>
                                     </div>
                                 </div>
                                 <div class="chat-fs-active-tags">
-                                    <span class="chat-fs-tag-badge encryption-badge">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                                        بث فوري معتمد (End-to-End WebSocket)
-                                    </span>
                                     <span class="chat-fs-tag-badge channel-kind-tag" id="chat-fs-banner-tag">
-                                        ${isDirect ? 'إشراف فردي 1-على-1' : 'ديوان جماعي'}
+                                        ${isDirect ? 'إشراف فردي 1-على-1' : 'نقاش جماعي للدفعة'}
                                     </span>
                                 </div>
                             </div>
@@ -1649,11 +1660,11 @@
                             <span class="recording-timer" id="chat-recording-timer">00:00</span>
                         </div>
                         <div class="chat-recording-actions">
-                            <button class="btn-cancel-recording" onclick="window.ChatWidget.cancelVoiceRecording()" title="إلغاء التسجيل">
+                            <button class="btn-cancel-recording" onclick="window.ChatWidget.cancelVoiceRecording()" title="إلغاء التسجيل" aria-label="إلغاء التسجيل">
                                 <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 <span>إلغاء</span>
                             </button>
-                            <button class="btn-send-recording" onclick="window.ChatWidget.finishVoiceRecording()" title="إرسال الصوتية">
+                            <button class="btn-send-recording" onclick="window.ChatWidget.finishVoiceRecording()" title="إرسال الصوتية" aria-label="إرسال الصوتية">
                                 <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                 <span>إرسال الصوتية</span>
                             </button>

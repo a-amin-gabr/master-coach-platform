@@ -21,13 +21,13 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.mp3', '.wav', '.m4a', '.webm', '.txt'];
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.mp3', '.wav', '.m4a', '.aac', '.ogg', '.webm', '.txt', '.pptx', '.xlsx'];
     const ext = path.extname(file.originalname).toLowerCase();
 
     if (allowedExtensions.includes(ext)) {
         cb(null, true);
     } else {
-        cb(new Error(`نوع الملف غير مدعوم (${ext}). الأنواع المسموحة: PDF, DOCX, MP3, WAV, PNG, JPG`), false);
+        cb(new Error(`نوع الملف غير مدعوم (${ext}). الأنواع المسموحة: MP3, WAV, M4A, AAC, OGG, WEBM, PDF, DOCX, PNG, JPG`), false);
     }
 };
 
@@ -35,7 +35,7 @@ const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 50 * 1024 * 1024 // 50MB
+        fileSize: 100 * 1024 * 1024 // 100MB
     }
 });
 

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { broadcastNotificationViaWS } = require('../websocket');
 
 function resolveCoachId(req) {
     if (req.user.role === 'admin') {
@@ -200,6 +201,30 @@ router.post('/:id/evaluate', authenticate, requireRole('admin'), (req, res) => {
         `).run(coachId, task.id, task.supervisorFeedback.audioUrl, task.supervisorFeedback.notes, parsedGrade, now);
 
         db.updateCoachState(coachId, state);
+
+        // Create supervisory notification for coach and push via WebSocket
+        try {
+            const coachRow = dbConn.prepare('SELECT user_id FROM coaches WHERE id = ?').get(coachId);
+            if (coachRow && coachRow.user_id) {
+                const notifType = task.supervisorFeedback.audioUrl ? 'voice_note' : 'task_review';
+                const notifTitle = status === 'approved' 
+                    ? `اعتماد المهمة [${task.id}]: ${task.title || ''}`
+                    : `ملاحظات تعديل إشرافية على المهمة [${task.id}]: ${task.title || ''}`;
+                const notifMsg = task.supervisorFeedback.notes || (status === 'approved' ? `تم اعتماد المهمة بنجاح بدرجة (${parsedGrade}/5.0)` : 'تم طلب استكمال أدلة التحسين');
+
+                const notif = db.createNotification({
+                    userId: coachRow.user_id,
+                    type: notifType,
+                    title: notifTitle,
+                    message: notifMsg,
+                    linkTab: 'tasks',
+                    linkId: task.id,
+                    linkAction: `task:${task.id}`,
+                    metadata: { taskId: task.id, status, grade: parsedGrade }
+                });
+                broadcastNotificationViaWS(coachRow.user_id, notif);
+            }
+        } catch (_) {}
 
         return res.json({
             message: status === 'approved' ? 'تم اعتماد المهمة بنجاح ورصد التقييم' : 'تم طلب التعديل وإرسال الملاحظات للمشارك',

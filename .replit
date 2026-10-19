@@ -1,17 +1,13 @@
 run = "npm start"
 entrypoint = "server/server.js"
-modules = ["nodejs-20"]
 
 [nix]
 channel = "stable-24_05"
 
-[env]
-PORT = "3000"
+[deployment]
+run = ["node", "server/server.js"]
+deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 3000
 externalPort = 80
-
-[deployment]
-run = ["node", "server/server.js"]
-deploymentTarget = "autoscale"
